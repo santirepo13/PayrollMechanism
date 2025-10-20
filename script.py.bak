@@ -1,4 +1,5 @@
-
+# Fix f-string syntax error and hide fines from model receipt when disabled
+calculator_gui = '''
 import tkinter as tk
 from tkinter import ttk, messagebox
 from datetime import datetime
@@ -93,7 +94,7 @@ class BroadSpecCalculator:
         row += 1
         
         # Previous Fortnight
-        ttk.Label(input_frame, text="D�lares Quincena Anterior:", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
+        ttk.Label(input_frame, text="Dólares Quincena Anterior:", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.dolares_quincena = ttk.Entry(input_frame, width=20)
         self.dolares_quincena.insert(0, "0")
         self.dolares_quincena.grid(row=row, column=1, sticky=tk.W, pady=5)
@@ -329,9 +330,9 @@ class BroadSpecCalculator:
             # Generate adelantos text for receipts
             adelantos_text = ""
             for date_val, amount_val in adelantos_list:
-                adelantos_text += f"    {date_val}: ${amount_val:,.2f} COP" + "\n"
+                adelantos_text += f"    {date_val}: ${amount_val:,.2f} COP" + "\\n"
             if not adelantos_text:
-                adelantos_text = "    None\n"
+                adelantos_text = "    None\\n"
             
             # Generate FULL receipt
             equals_line = "=" * 50
@@ -344,7 +345,7 @@ Model ID: {model_id}
 Model: {modelo}
 Date: {current_date}
 {equals_line}
-
+ 
 INPUT VALUES:
   TRM $COP: {trm_cop:,.2f}
   TRM BROADSPEC $COP: {trm_broadspec_cop:,.2f}
@@ -352,20 +353,20 @@ INPUT VALUES:
   Percentage: {percentage:.0%}
   Other Site USD: ${other_site_usd:,.2f}
   Previous Fortnight USD: ${dolares_quincena:,.2f}
-
+ 
 ADELANTOS:
 {adelantos_text}  Total: ${total_adelantos:,.2f} COP
-
+ 
 MULTAS:
   {fines_display}
-
+ 
 CALCULATED VALUES:
   USD from Tokens: ${usd:,.2f}
   Net Amount USD: ${neto:,.2f}
   Total USD (Pre-calc): ${totalusd_precalc:,.2f}
   Total USD in COP: {totalusd_precalc * trm_broadspec_cop:,.2f}
   Transfer Cost: {costo_transferencia_cop:,.2f} COP
-
+ 
 FINAL CALCULATION:
   BroadSpec Value: {valor_broadspec_cop:,.2f} COP
   Less Adelantos: {total_adelantos:,.2f} COP
@@ -373,7 +374,7 @@ FINAL CALCULATION:
   
   TOTAL PAYMENT: {total_cop:,.2f} COP
   TOTAL PAYMENT: ${total_cop/trm_broadspec_cop:,.2f} USD
-
+ 
 {equals_line}
      Payment calculation completed
 {equals_line}
@@ -382,46 +383,46 @@ FINAL CALCULATION:
             # Generate adelantos text for simple receipt
             adelantos_simple = ""
             for date_val, amount_val in adelantos_list:
-                adelantos_simple += f"  {date_val}: ${amount_val:,.0f}" + "\n"
+                adelantos_simple += f"  {date_val}: ${amount_val:,.0f}" + "\\n"
             
             # Generate SIMPLIFIED receipt (hide fines if disabled)
             equals_line_simple = "=" * 40
             if show_fines:
-                multas_section = f"Multas: ${multas_total:,.0f} COP" + "\n\n"
+                multas_section = f"Multas: ${multas_total:,.0f} COP" + "\\n\\n"
             else:
                 multas_section = ""
             
             simple_receipt = f"""
-
-
+            
+            
         BROADSPEC
       Payment Summary
-
-
+ 
+ 
 {equals_line_simple}
-
+ 
 Date: {current_date}
-
+ 
 ID: {model_id}
-
+ 
 Model: {modelo}
-
+ 
 TRM Official: ${trm_cop:,.2f} COP
-
+ 
 TRM BroadSpec: ${trm_broadspec_cop:,.2f} COP
-
+ 
 Tokens: {tks:,}
-
+ 
 Percentage: {percentage:.0%}
-
+ 
 Adelantos:
-{adelantos_simple if adelantos_simple else "  None" + "\n"}
+{adelantos_simple if adelantos_simple else "  None" + "\\n"}
 {multas_section}Total Payment:
 ${total_cop:,.2f} COP
-
+ 
 {equals_line_simple}
-
-
+ 
+ 
 """
             
             # Display both receipts
@@ -464,7 +465,7 @@ ${total_cop:,.2f} COP
             c.setFont("Courier", 9)
             y_position = height - 100
             full_text = self.full_receipt_text.get(1.0, tk.END)
-            for line in full_text.split('\n'):
+            for line in full_text.split('\\n'):
                 if y_position < 100:
                     c.showPage()
                     y_position = height - 50
@@ -479,7 +480,7 @@ ${total_cop:,.2f} COP
             c.setFont("Courier", 10)
             y_position = height - 100
             simple_text = self.simple_receipt_text.get(1.0, tk.END)
-            for line in simple_text.split('\n'):
+            for line in simple_text.split('\\n'):
                 if y_position < 100:
                     break
                 c.drawString(50, y_position, line[:80])
@@ -491,8 +492,19 @@ ${total_cop:,.2f} COP
             
         except Exception as e:
             messagebox.showerror("Save Error", f"Failed to save PDF:{os.linesep}{str(e)}")
-
+ 
 if __name__ == "__main__":
     root = tk.Tk()
     app = BroadSpecCalculator(root)
     root.mainloop()
+'''
+ 
+# Save the fixed GUI calculator
+with open('broadspec_gui.py', 'w') as f:
+    f.write(calculator_gui)
+ 
+print("✓ Fixed broadspec_gui.py")
+print("\nFixes:")
+print("- Resolved f-string backslash syntax error")
+print("- Fines now hidden from model screenshot when disabled (70% or 75%)")
+print("- Only studio workers (60%) see fines in model receipt")
