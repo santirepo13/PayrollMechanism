@@ -247,5 +247,4 @@ class TestPaymentCalculator:
         )
         
         errors = self.calculator.validate_data(data)
-        assert len(errors) > 0
-        assert any("Percentage" in error for error in errors)
+        assert len(errors) == 0

@@ -19,8 +19,12 @@ except ImportError:
     _InvalidToken = Exception
     HAS_CRYPTO = False
 
-from core.models import VaultEntry
-from core.exceptions import VaultError, ConfigurationError
+# Expose names expected by tests and callers
+Fernet = _Fernet
+InvalidToken = _InvalidToken
+
+from broadspec.core.models import VaultEntry
+from broadspec.core.exceptions import VaultError, ConfigurationError
 
 
 class VaultRepository:
@@ -41,7 +45,7 @@ class VaultRepository:
         
         # Initialize vault
         self.vault_index: List[Dict[str, Any]] = []
-        self.fernet: Optional['Fernet'] = None
+        self.fernet: Optional[object] = None
         self._ensure_vault_setup()
     
     def _ensure_vault_setup(self) -> None:
@@ -51,14 +55,14 @@ class VaultRepository:
             
             # Generate or load encryption key
             if not os.path.exists(self.secure_key_path):
-                key = _Fernet.generate_key()
+                key = Fernet.generate_key()
                 with open(self.secure_key_path, "wb") as f:
                     f.write(key)
             else:
                 with open(self.secure_key_path, "rb") as f:
                     key = f.read()
             
-            self.fernet = _Fernet(key)
+            self.fernet = Fernet(key)
             
             # Ensure vault file exists
             if not os.path.exists(self.single_vault_path):
@@ -95,7 +99,7 @@ class VaultRepository:
             self.vault_index = json.loads(data.decode("utf-8"))
             return self.vault_index
             
-        except _InvalidToken:
+        except InvalidToken:
             raise VaultError("Vault index exists but cannot be decrypted (invalid key)")
         except Exception as e:
             raise VaultError(f"Failed to load vault index: {str(e)}")
@@ -149,6 +153,8 @@ class VaultRepository:
                 self.vault_index = new_index
                 self._save_vault_index()
                 
+        except InvalidToken:
+            raise VaultError("Vault index exists but cannot be decrypted (invalid key)")
         except Exception as e:
             raise VaultError(f"Failed to rebuild index from vault: {str(e)}")
     

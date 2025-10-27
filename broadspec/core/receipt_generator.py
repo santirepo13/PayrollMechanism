@@ -7,8 +7,8 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
 from .models import CalculationResult
-from utils.formatters import format_currency_cop, format_currency_usd
-from utils.pdf_protocols import generate_filename
+from broadspec.utils.formatters import format_currency_cop, format_currency_usd
+from broadspec.utils.pdf_protocols import generate_filename
 from .exceptions import ReceiptGenerationError
 
 
@@ -114,8 +114,8 @@ class ReceiptGenerator:
             f"{equals_line}",
             "",
             "INPUT VALUES:",
-            f"  TRM Official $COP: {format_currency_cop(data.get('trm_official_cop', 0))}",
-            f"  TRM BROADSPEC $COP: {format_currency_cop(result.trm_broadspec_cop)}",
+            f"  TRM Official: {format_currency_cop(data.get('trm_official_cop', 0))}",
+            f"  TRM BroadSpec: {format_currency_cop(result.trm_broadspec_cop)}",
             f"  Tokens (TKS): {data.get('tokens', 0):,}",
             f"  Percentage: {data.get('percentage', 0):.0%}",
             "  Other Sites (USD equivalent):",
@@ -129,7 +129,7 @@ class ReceiptGenerator:
         ])
         
         lines.extend(advances_display)
-        lines.append(f"  Total: {format_currency_cop(result.advances_total)} COP")
+        lines.append(f"  Total: {format_currency_cop(result.advances_total)}")
         lines.extend([
             "",
             "FINES:",
@@ -140,14 +140,14 @@ class ReceiptGenerator:
             f"  Net Amount USD: {format_currency_usd(result.net_usd)}",
             f"  Total USD (Pre-calc): {format_currency_usd(result.total_usd_precalc)}",
             f"  Total USD in COP: {format_currency_cop(result.total_usd_precalc * result.trm_broadspec_cop)}",
-            f"  Transfer Cost: {format_currency_cop(result.transfer_cost_cop)} COP",
+            f"  Transfer Cost: {format_currency_cop(result.transfer_cost_cop)}",
             "",
             "FINAL CALCULATION:",
-            f"  BroadSpec Value: {format_currency_cop(result.valor_broadspec_cop)} COP",
-            f"  Less Advances: {format_currency_cop(result.advances_total)} COP",
-            f"  Less Fines: {format_currency_cop(result.fines_total)} COP",
+            f"  BroadSpec Value: {format_currency_cop(result.valor_broadspec_cop)}",
+            f"  Less Advances: {format_currency_cop(result.advances_total)}",
+            f"  Less Fines: {format_currency_cop(result.fines_total)}",
             "",
-            f"  TOTAL PAYMENT: {format_currency_cop(result.total_cop)} COP",
+            f"  TOTAL PAYMENT: {format_currency_cop(result.total_cop)}",
             f"  TOTAL PAYMENT: {format_currency_usd(result.total_usd)} USD",
             "",
             f"{equals_line}",
@@ -188,9 +188,9 @@ class ReceiptGenerator:
             "",
             f"Model: {data.get('model_name', '')}",
             "",
-            f"TRM Official: {format_currency_cop(data.get('trm_official_cop', 0))} COP",
+            f"TRM Official: {format_currency_cop(data.get('trm_official_cop', 0))}",
             "",
-            f"TRM BroadSpec: {format_currency_cop(result.trm_broadspec_cop)} COP",
+            f"TRM BroadSpec: {format_currency_cop(result.trm_broadspec_cop)}",
             "",
             f"Tokens: {data.get('tokens', 0):,}",
             "",
@@ -211,8 +211,7 @@ class ReceiptGenerator:
             lines.append(fines_section)
         
         lines.extend([
-            "Total Payment:",
-            f"{format_currency_cop(result.total_cop)} COP",
+            f"Total Payment: {format_currency_cop(result.total_cop)}",
             "",
             f"{equals_line}",
             "",

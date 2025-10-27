@@ -7,7 +7,7 @@ import tempfile
 from typing import List, Optional, Tuple
 from pathlib import Path
 
-from core.exceptions import StorageError, ValidationError
+from broadspec.core.exceptions import StorageError, ValidationError
 
 
 class FileOperations:

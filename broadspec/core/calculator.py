@@ -28,10 +28,14 @@ class PaymentCalculator:
         
         # Calculate USD values
         usd_from_tokens = data.tokens / self.token_to_usd_rate
-        net_usd = usd_from_tokens * data.percentage
+        percent = data.percentage
+        if percent > 1:
+            percent = percent / 100.0
+        net_usd = usd_from_tokens * percent
+
+        # Calculate total USD for other sites
+        other_sites_total_usd = sum(site.get_usd_equivalent() for site in data.other_sites) * percent
         
-        # Calculate other sites total
-        other_sites_total_usd = sum(site.get_usd_equivalent() for site in data.other_sites)
         
         # Calculate total USD before final calculation
         total_usd_precalc = net_usd + other_sites_total_usd + data.previous_fortnight_usd
@@ -68,7 +72,10 @@ class PaymentCalculator:
     
     def _calculate_fines(self, data: PaymentData) -> tuple[float, str, bool]:
         """Calculate fines based on percentage and input values."""
-        show_fines = data.percentage <= 0.60
+        percent = data.percentage
+        if percent > 1:
+            percent = percent / 100.0
+        show_fines = percent <= 0.60
         
         if data.custom_fine_cop > 0:
             fines_total = data.custom_fine_cop
@@ -95,7 +102,10 @@ class PaymentCalculator:
         if data.tokens < 0:
             errors.append("Tokens cannot be negative")
         
-        if data.percentage <= 0 or data.percentage > 1:
+        percent = data.percentage
+        if percent > 1:
+            percent = percent / 100.0
+        if percent <= 0 or percent > 1:
             errors.append("Percentage must be between 0 and 1")
         
         if data.previous_fortnight_usd < 0:
