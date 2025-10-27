@@ -3,3 +3,6 @@
 .vscode/
 .DS_Store
 __pycache__/
+# Ignore vault encryption key
+.secure_store/key.key
+
