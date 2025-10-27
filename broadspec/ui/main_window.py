@@ -37,7 +37,11 @@ class BroadSpecGUI:
         width = ui_config.get('default_width', 1900)
         height = ui_config.get('default_height', 1064)
         
-        self.root.geometry(f"{width}x{height}")
+        # Adjust height to account for taskbar (approximately 40 pixels)
+        self.taskbar_height = 40
+        adjusted_height = height - self.taskbar_height
+        
+        self.root.geometry(f"{width}x{adjusted_height}")
         self.root.resizable(True, True)
         
         # Configure style
@@ -51,31 +55,19 @@ class BroadSpecGUI:
         except Exception:
             pass
         
-        # Create main container with scrollbar
-        main_canvas = tk.Canvas(root)
-        main_scrollbar = ttk.Scrollbar(root, orient="vertical", command=main_canvas.yview)
-        scrollable_frame = ttk.Frame(main_canvas)
+        # Create main container (single box layout)
+        self.main_frame = ttk.Frame(root, padding="10")
+        self.main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
-        )
-        
-        main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        main_canvas.configure(yscrollcommand=main_scrollbar.set)
-        
-        main_canvas.pack(side="left", fill="both", expand=True)
-        main_scrollbar.pack(side="right", fill="y")
-        
-        # Ensure the scrollable_frame expands inside canvas
+        # Configure main frame to expand
         try:
-            scrollable_frame.columnconfigure(0, weight=1)
-            scrollable_frame.rowconfigure(0, weight=1)
+            self.main_frame.rowconfigure(0, weight=1)
+            self.main_frame.columnconfigure(0, weight=1)
         except Exception:
             pass
         
         # Create notebook with Main and Admin tabs
-        self.notebook = ttk.Notebook(scrollable_frame)
+        self.notebook = ttk.Notebook(self.main_frame)
         self.main_tab = ttk.Frame(self.notebook)
         self.admin_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.main_tab, text="Main")
@@ -89,8 +81,8 @@ class BroadSpecGUI:
     def _create_main_tab(self):
         """Create the main calculator tab."""
         # Main tab frame
-        main_frame = ttk.Frame(self.main_tab, padding="20")
-        main_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        main_frame = ttk.Frame(self.main_tab, padding="10")
+        main_frame.pack(fill=tk.BOTH, expand=True)
         
         # Configure grid weights
         try:
@@ -100,17 +92,18 @@ class BroadSpecGUI:
             main_frame.columnconfigure(1, weight=2)
             main_frame.columnconfigure(2, weight=1)
             main_frame.rowconfigure(1, weight=1)
+            main_frame.rowconfigure(2, weight=0)  # For action buttons
         except Exception:
             pass
         
         # Title
-        title = ttk.Label(main_frame, text="BROADSPEC PAYMENT CALCULATOR", 
+        title = ttk.Label(main_frame, text="BROADSPEC PAYMENT CALCULATOR",
                          font=('Arial', 16, 'bold'))
-        title.grid(row=0, column=0, columnspan=3, pady=(0, 20))
+        title.grid(row=0, column=0, columnspan=3, pady=(0, 10))
         
         # Input fields column
         input_frame = ttk.Frame(main_frame)
-        input_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.E, tk.S), padx=(0, 20))
+        input_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.E, tk.S), padx=(0, 10))
         
         try:
             input_frame.columnconfigure(0, weight=0)
@@ -122,6 +115,15 @@ class BroadSpecGUI:
         
         # Receipt displays
         self._create_receipt_displays(main_frame)
+        
+        # Action buttons
+        action_frame = ttk.Frame(main_frame)
+        action_frame.grid(row=2, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        ttk.Button(action_frame, text="Calculate", command=self.calculate).pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Clear Fields", command=self.clear_fields).pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Save PDF", command=self.save_pdf).pack(side=tk.LEFT, padx=5)
+        
     
     def _create_input_fields(self, parent):
         """Create input field widgets."""
@@ -220,18 +222,7 @@ class BroadSpecGUI:
         self.custom_fine_cop.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # Buttons
-        buttons_frame = ttk.Frame(parent)
-        buttons_frame.grid(row=row, column=0, columnspan=2, pady=20)
-        
-        calc_btn = ttk.Button(buttons_frame, text="Calculate", command=self.calculate)
-        calc_btn.grid(row=0, column=0, padx=5)
-        
-        clear_btn = ttk.Button(buttons_frame, text="Clear", command=self.clear_fields)
-        clear_btn.grid(row=0, column=1, padx=5)
-        
-        save_btn = ttk.Button(buttons_frame, text="Save PDF", command=self.save_pdf)
-        save_btn.grid(row=0, column=2, padx=5)
+        # No buttons here - they're now in the main tab
         
         
         # Add initial fields
@@ -240,10 +231,21 @@ class BroadSpecGUI:
         self.on_percentage_change(None)
     
     def _create_receipt_displays(self, parent):
-        """Create receipt display areas."""
-        # Full receipt (middle)
-        full_receipt_frame = ttk.LabelFrame(parent, text="Full Receipt (Internal)", padding="10")
-        full_receipt_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=10)
+        """Create receipt display area with dual box layout (full receipt and model screenshot)."""
+        # Create a container for the receipt displays
+        receipt_container = ttk.Frame(parent)
+        receipt_container.grid(row=1, column=1, columnspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
+        
+        try:
+            receipt_container.columnconfigure(0, weight=1)
+            receipt_container.columnconfigure(1, weight=1)
+            receipt_container.rowconfigure(0, weight=1)
+        except Exception:
+            pass
+        
+        # Full receipt display
+        full_receipt_frame = ttk.LabelFrame(receipt_container, text="Full Receipt", padding="10")
+        full_receipt_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
         
         try:
             full_receipt_frame.rowconfigure(0, weight=1)
@@ -251,32 +253,40 @@ class BroadSpecGUI:
         except Exception:
             pass
         
-        self.full_receipt_text = tk.Text(full_receipt_frame, wrap='none')
-        self.full_receipt_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.receipt_text = tk.Text(full_receipt_frame, wrap='none')
+        self.receipt_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
-        scrollbar1 = ttk.Scrollbar(full_receipt_frame, orient=tk.VERTICAL, command=self.full_receipt_text.yview)
-        scrollbar1.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.full_receipt_text['yscrollcommand'] = scrollbar1.set
+        scrollbar = ttk.Scrollbar(full_receipt_frame, orient=tk.VERTICAL, command=self.receipt_text.yview)
+        scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.receipt_text['yscrollcommand'] = scrollbar.set
         
-        # Simplified receipt (right side)
-        simple_receipt_frame = ttk.LabelFrame(parent, text="Model Receipt (Screenshot)", padding="10")
-        simple_receipt_frame.grid(row=1, column=2, sticky=(tk.W, tk.E, tk.N, tk.S))
+        # Model screenshot display (for payment confirmation)
+        model_frame = ttk.LabelFrame(receipt_container, text="Payment Confirmation", padding="10")
+        model_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(5, 0))
         
         try:
-            simple_receipt_frame.rowconfigure(0, weight=1)
-            simple_receipt_frame.columnconfigure(0, weight=1)
+            model_frame.rowconfigure(0, weight=1)
+            model_frame.columnconfigure(0, weight=1)
         except Exception:
             pass
         
-        self.simple_receipt_text = tk.Text(simple_receipt_frame, wrap='none')
-        self.simple_receipt_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.model_text = tk.Text(model_frame, wrap='none', height=15)
+        self.model_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        model_scrollbar = ttk.Scrollbar(model_frame, orient=tk.VERTICAL, command=self.model_text.yview)
+        model_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.model_text['yscrollcommand'] = model_scrollbar.set
     
     def _create_admin_tab(self):
         """Create the admin tab for vault management."""
+        # Create main container for admin tab
+        admin_container = ttk.Frame(self.admin_tab, padding="10")
+        admin_container.pack(fill=tk.BOTH, expand=True)
+        
         if not self.controller.vault_repository:
             # Show message if vault is not available
             no_vault_label = ttk.Label(
-                self.admin_tab, 
+                admin_container,
                 text="Vault features are not available (cryptography package missing)",
                 font=('Arial', 12)
             )
@@ -284,43 +294,52 @@ class BroadSpecGUI:
             return
         
         # Create vault management UI
-        vault_frame = ttk.LabelFrame(self.admin_tab, text="Encrypted Vault (Admin)", padding="10")
-        vault_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10, padx=10)
+        vault_frame = ttk.LabelFrame(admin_container, text="Encrypted Vault (Admin)", padding="10")
+        vault_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
         # Listbox for vault entries
         self.vault_listbox = tk.Listbox(vault_frame, width=100, height=20, selectmode=tk.EXTENDED)
-        self.vault_listbox.grid(row=0, column=0, rowspan=4, sticky=(tk.W, tk.N))
+        self.vault_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.vault_listbox.bind('<Double-Button-1>', self.on_vault_double_click)
         
         scrollbar = ttk.Scrollbar(vault_frame, orient=tk.VERTICAL, command=self.vault_listbox.yview)
-        scrollbar.grid(row=0, column=1, rowspan=4, sticky=(tk.N, tk.S))
+        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.vault_listbox['yscrollcommand'] = scrollbar.set
         
         # Buttons
-        btn_frame = ttk.Frame(vault_frame)
-        btn_frame.grid(row=4, column=0, columnspan=2, sticky=tk.W, pady=(5,0))
+        btn_frame = ttk.Frame(admin_container)
+        btn_frame.pack(fill=tk.X, pady=(0, 10))
         
         export_btn = ttk.Button(btn_frame, text="Export Selected", command=self.export_selected)
-        export_btn.grid(row=0, column=0, padx=5)
+        export_btn.pack(side=tk.LEFT, padx=5)
         
         delete_btn = ttk.Button(btn_frame, text="Delete Selected", command=self.delete_selected)
-        delete_btn.grid(row=0, column=1, padx=5)
+        delete_btn.pack(side=tk.LEFT, padx=5)
         
         import_btn = ttk.Button(btn_frame, text="Import PDFs", command=self.import_pdfs)
-        import_btn.grid(row=0, column=2, padx=5)
+        import_btn.pack(side=tk.LEFT, padx=5)
         
         refresh_btn = ttk.Button(btn_frame, text="Refresh", command=self.refresh_vault)
-        refresh_btn.grid(row=0, column=3, padx=5)
+        refresh_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Resolution toggle button
+        self.resolution_var = tk.StringVar(value="1920x1080")
+        resolution_btn = ttk.Button(btn_frame, text="Toggle Resolution", command=self.toggle_resolution)
+        resolution_btn.pack(side=tk.LEFT, padx=5)
+        
+        # Current resolution label
+        self.resolution_label = ttk.Label(btn_frame, textvariable=self.resolution_var)
+        self.resolution_label.pack(side=tk.LEFT, padx=5)
         
         # Stats
-        stats_frame = ttk.Frame(vault_frame)
-        stats_frame.grid(row=5, column=0, sticky=(tk.W, tk.E), pady=(10,0))
+        stats_frame = ttk.Frame(admin_container)
+        stats_frame.pack(fill=tk.X, pady=(0, 10))
         
         self.vault_count_label = ttk.Label(stats_frame, text="Entries: 0")
-        self.vault_count_label.grid(row=0, column=0, sticky=tk.W, padx=(0,10))
+        self.vault_count_label.pack(side=tk.LEFT, padx=(0,10))
         
         self.vault_size_label = ttk.Label(stats_frame, text="Vault size: 0 B")
-        self.vault_size_label.grid(row=0, column=1, sticky=tk.W)
+        self.vault_size_label.pack(side=tk.LEFT)
         
         # Initial load
         self.refresh_vault()
@@ -342,7 +361,7 @@ class BroadSpecGUI:
         
         # Create PDF preview UI
         preview_frame = ttk.Frame(self.pdf_preview_tab, padding="10")
-        preview_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10, padx=10)
+        preview_frame.pack(fill=tk.BOTH, expand=True)
         
         # Configure grid weights
         try:
@@ -355,42 +374,31 @@ class BroadSpecGUI:
         
         # Controls frame
         controls_frame = ttk.Frame(preview_frame)
-        controls_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        controls_frame.pack(fill=tk.X, pady=(0, 10))
         
-        # File selection
-        ttk.Label(controls_frame, text="PDF File:").grid(row=0, column=0, padx=(0, 5))
-        self.pdf_path_var = tk.StringVar()
-        self.pdf_path_entry = ttk.Entry(controls_frame, textvariable=self.pdf_path_var, width=60)
-        self.pdf_path_entry.grid(row=0, column=1, padx=(0, 5))
-        
-        browse_btn = ttk.Button(controls_frame, text="Browse", command=self.browse_pdf)
-        browse_btn.grid(row=0, column=2, padx=(0, 5))
-        
-        load_btn = ttk.Button(controls_frame, text="Load", command=self.load_pdf)
-        load_btn.grid(row=0, column=3)
-        
-        # Navigation controls
+                # Navigation controls
         nav_frame = ttk.Frame(preview_frame)
-        nav_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        nav_frame.pack(fill=tk.X, pady=(10, 0))
         
-        ttk.Button(nav_frame, text="Previous", command=self.prev_page).grid(row=0, column=0, padx=(0, 5))
-        ttk.Button(nav_frame, text="Next", command=self.next_page).grid(row=0, column=1, padx=(0, 5))
+        ttk.Button(nav_frame, text="Previous", command=self.prev_page).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(nav_frame, text="Next", command=self.next_page).pack(side=tk.LEFT, padx=(0, 5))
         
-        ttk.Label(nav_frame, text="Page:").grid(row=0, column=2, padx=(10, 2))
+        ttk.Label(nav_frame, text="Page:").pack(side=tk.LEFT, padx=(10, 2))
         self.page_var = tk.StringVar(value="0 / 0")
-        ttk.Label(nav_frame, textvariable=self.page_var).grid(row=0, column=3, padx=(0, 10))
+        ttk.Label(nav_frame, textvariable=self.page_var).pack(side=tk.LEFT, padx=(0, 10))
         
-        ttk.Label(nav_frame, text="Zoom:").grid(row=0, column=4, padx=(10, 2))
+        ttk.Label(nav_frame, text="Zoom:").pack(side=tk.LEFT, padx=(10, 2))
         self.zoom_var = tk.StringVar(value="100%")
         zoom_combo = ttk.Combobox(nav_frame, textvariable=self.zoom_var, width=8, state='readonly')
         zoom_combo['values'] = ('50%', '75%', '100%', '125%', '150%', '200%')
         zoom_combo.current(2)
         zoom_combo.bind('<<ComboboxSelected>>', self.on_zoom_change)
-        zoom_combo.grid(row=0, column=5)
+        zoom_combo.pack(side=tk.LEFT)
         
         # Create scrollable canvas for PDF display
         canvas_frame = ttk.Frame(preview_frame)
-        canvas_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
+
         
         try:
             canvas_frame.rowconfigure(0, weight=1)
@@ -404,9 +412,9 @@ class BroadSpecGUI:
         
         self.pdf_canvas.configure(yscrollcommand=self.pdf_v_scrollbar.set, xscrollcommand=self.pdf_h_scrollbar.set)
         
-        self.pdf_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        self.pdf_v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        self.pdf_h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        self.pdf_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.pdf_v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.pdf_h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
         
         # Store reference to current image to prevent garbage collection
         self.current_pdf_image = None
@@ -420,12 +428,12 @@ class BroadSpecGUI:
                 text="PDF Preview is disabled in configuration",
                 font=('Arial', 10)
             )
-            no_preview_label.grid(row=1, column=0, columnspan=4, pady=10)
+            no_preview_label.pack(pady=10)
             return
         
         # Create PDF preview frame in admin tab
         pdf_preview_frame = ttk.LabelFrame(self.admin_tab, text="PDF Preview", padding="10")
-        pdf_preview_frame.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=10, padx=10)
+        pdf_preview_frame.pack(fill=tk.BOTH, expand=True)
         
         # Configure grid weights for pdf_preview_frame
         try:
@@ -434,24 +442,10 @@ class BroadSpecGUI:
         except Exception:
             pass
         
-        # File selection
-        file_frame = ttk.Frame(pdf_preview_frame)
-        file_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        ttk.Label(file_frame, text="PDF File:").grid(row=0, column=0, padx=(0, 5))
-        self.admin_pdf_path_var = tk.StringVar()
-        self.admin_pdf_path_entry = ttk.Entry(file_frame, textvariable=self.admin_pdf_path_var, width=50)
-        self.admin_pdf_path_entry.grid(row=0, column=1, padx=(0, 5))
-        
-        admin_browse_btn = ttk.Button(file_frame, text="Browse", command=self.admin_browse_pdf)
-        admin_browse_btn.grid(row=0, column=2, padx=(0, 5))
-        
-        admin_load_btn = ttk.Button(file_frame, text="Load", command=self.admin_load_pdf)
-        admin_load_btn.grid(row=0, column=3)
-        
-        # Create scrollable canvas for PDF display
+                # Create scrollable canvas for PDF display
         canvas_frame = ttk.Frame(pdf_preview_frame)
-        canvas_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        canvas_frame.pack(fill=tk.BOTH, expand=True)
+
         
         try:
             canvas_frame.rowconfigure(0, weight=1)
@@ -465,28 +459,28 @@ class BroadSpecGUI:
         
         self.admin_pdf_canvas.configure(yscrollcommand=admin_pdf_v_scrollbar.set, xscrollcommand=admin_pdf_h_scrollbar.set)
         
-        self.admin_pdf_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
-        admin_pdf_v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
-        admin_pdf_h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        self.admin_pdf_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        admin_pdf_v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        admin_pdf_h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
         
         # Navigation controls
         nav_frame = ttk.Frame(pdf_preview_frame)
-        nav_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        nav_frame.pack(fill=tk.X, pady=(10, 0))
         
-        ttk.Button(nav_frame, text="Previous", command=self.admin_prev_page).grid(row=0, column=0, padx=(0, 5))
-        ttk.Button(nav_frame, text="Next", command=self.admin_next_page).grid(row=0, column=1, padx=(0, 5))
+        ttk.Button(nav_frame, text="Previous", command=self.admin_prev_page).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(nav_frame, text="Next", command=self.admin_next_page).pack(side=tk.LEFT, padx=(0, 5))
         
-        ttk.Label(nav_frame, text="Page:").grid(row=0, column=2, padx=(10, 2))
+        ttk.Label(nav_frame, text="Page:").pack(side=tk.LEFT, padx=(10, 2))
         self.admin_page_var = tk.StringVar(value="0 / 0")
-        ttk.Label(nav_frame, textvariable=self.admin_page_var).grid(row=0, column=3, padx=(0, 10))
+        ttk.Label(nav_frame, textvariable=self.admin_page_var).pack(side=tk.LEFT, padx=(0, 10))
         
-        ttk.Label(nav_frame, text="Zoom:").grid(row=0, column=4, padx=(10, 2))
+        ttk.Label(nav_frame, text="Zoom:").pack(side=tk.LEFT, padx=(10, 2))
         self.admin_zoom_var = tk.StringVar(value="100%")
         admin_zoom_combo = ttk.Combobox(nav_frame, textvariable=self.admin_zoom_var, width=8, state='readonly')
         admin_zoom_combo['values'] = ('50%', '75%', '100%', '125%', '150%', '200%')
         admin_zoom_combo.current(2)
         admin_zoom_combo.bind('<<ComboboxSelected>>', self.admin_on_zoom_change)
-        admin_zoom_combo.grid(row=0, column=5)
+        admin_zoom_combo.pack(side=tk.LEFT)
         
         # Store reference to current image to prevent garbage collection
         self.admin_current_pdf_image = None
@@ -608,8 +602,8 @@ class BroadSpecGUI:
         self.custom_fine_cop.delete(0, tk.END)
         
         # Clear receipts
-        self.full_receipt_text.delete(1.0, tk.END)
-        self.simple_receipt_text.delete(1.0, tk.END)
+        self.receipt_text.delete(1.0, tk.END)
+        self.model_text.delete(1.0, tk.END)
         
         # Reset stored data
         self.current_input_data = None
@@ -780,6 +774,252 @@ class BroadSpecGUI:
         except Exception as e:
             messagebox.showerror("Refresh Error", f"Failed to refresh vault: {str(e)}")
     
+    def toggle_resolution(self):
+        """Toggle between 1920x1080 and 1366x768 resolutions."""
+        current_resolution = self.resolution_var.get()
+        
+        if current_resolution == "1920x1080":
+            self.resolution_var.set("1366x768")
+            new_width, new_height = 1366, 768
+        else:
+            self.resolution_var.set("1920x1080")
+            new_width, new_height = 1920, 1080
+        
+        # Adjust height to account for taskbar
+        adjusted_height = new_height - self.taskbar_height
+        
+        # Update the UI to fit the new resolution
+        self._update_ui_for_resolution(new_width, adjusted_height)
+    
+    def _update_ui_for_resolution(self, width, height):
+        """Update UI elements to fit the specified resolution."""
+        # Calculate scaling factor based on 1920x1080 as reference
+        scale_factor_width = width / 1920
+        scale_factor_height = height / (1080 - self.taskbar_height)  # Adjust for taskbar
+        
+        # Use the smaller scale factor to maintain aspect ratio
+        scale_factor = min(scale_factor_width, scale_factor_height)
+        
+        # Store current scale factor for later use
+        self.current_scale_factor = scale_factor
+        
+        # Apply scaling to UI elements
+        self._scale_ui_elements(scale_factor)
+        
+        # Adjust padding and spacing based on scale factor
+        self._adjust_layout_spacing(scale_factor)
+        
+        # Adjust window size to ensure it fits within screen bounds
+        self._adjust_window_size(width, height)
+        
+        # Scale receipt text content to fit resolution
+        self._scale_receipt_content(scale_factor)
+    
+    def _scale_ui_elements(self, scale_factor):
+        """Scale UI elements based on the scale factor."""
+        # Update font sizes
+        base_font_size = 10
+        new_font_size = max(8, int(base_font_size * scale_factor))
+        
+        # Update title font
+        title_font = ('Arial', max(14, int(16 * scale_factor)), 'bold')
+        
+        # Update input field fonts
+        input_font = ('Arial', new_font_size)
+        
+        # Apply font changes to relevant elements
+        try:
+            # Update main tab elements
+            for widget in self.main_tab.winfo_children():
+                if isinstance(widget, ttk.Frame):
+                    for child in widget.winfo_children():
+                        if isinstance(child, ttk.Label):
+                            child.config(font=input_font)
+                        elif isinstance(child, ttk.Button):
+                            child.config(font=input_font)
+                        elif isinstance(child, ttk.Entry):
+                            child.config(font=input_font)
+                        elif isinstance(child, ttk.Combobox):
+                            child.config(font=input_font)
+                        elif isinstance(child, ttk.LabelFrame):
+                            # Update frame labels
+                            child.config(font=input_font)
+                            # Update frame contents
+                            for frame_child in child.winfo_children():
+                                if isinstance(frame_child, ttk.Label):
+                                    frame_child.config(font=input_font)
+                                elif isinstance(frame_child, tk.Text):
+                                    frame_child.config(font=('Courier New', new_font_size))
+            
+            # Update admin tab elements
+            for widget in self.admin_tab.winfo_children():
+                if isinstance(widget, ttk.Label):
+                    widget.config(font=input_font)
+                elif isinstance(widget, ttk.Button):
+                    widget.config(font=input_font)
+                elif isinstance(widget, ttk.Listbox):
+                    widget.config(font=input_font)
+                elif isinstance(widget, ttk.LabelFrame):
+                    # Update frame labels
+                    widget.config(font=input_font)
+                    # Update frame contents
+                    for frame_child in widget.winfo_children():
+                        if isinstance(frame_child, ttk.Label):
+                            frame_child.config(font=input_font)
+                        elif isinstance(frame_child, ttk.Button):
+                            frame_child.config(font=input_font)
+                        elif isinstance(frame_child, tk.Listbox):
+                            frame_child.config(font=input_font)
+                        elif isinstance(frame_child, ttk.Entry):
+                            frame_child.config(font=input_font)
+                        elif isinstance(frame_child, ttk.Canvas):
+                            # Adjust canvas size
+                            canvas_width = int(600 * scale_factor)
+                            canvas_height = int(400 * scale_factor)
+                            frame_child.config(width=canvas_width, height=canvas_height)
+            
+            # Update notebook tab fonts
+            style = ttk.Style()
+            style.configure('TNotebook.Tab', font=input_font)
+            
+        except Exception as e:
+            print(f"Error scaling UI elements: {str(e)}")
+    
+    def _adjust_layout_spacing(self, scale_factor):
+        """Adjust padding and spacing based on scale factor."""
+        try:
+            # Scale padding values
+            base_padding = 10
+            scaled_padding = max(5, int(base_padding * scale_factor))
+            
+            # Update main frame padding
+            self.main_frame.config(padding=scaled_padding)
+            
+            # Update notebook padding
+            self.notebook.config(padding=scaled_padding)
+            
+            # Update tab frame paddings
+            for tab in [self.main_tab, self.admin_tab]:
+                for widget in tab.winfo_children():
+                    if isinstance(widget, ttk.Frame):
+                        widget.config(padding=scaled_padding)
+                    elif isinstance(widget, ttk.LabelFrame):
+                        widget.config(padding=scaled_padding)
+            
+            # Scale button padding
+            for tab in [self.main_tab, self.admin_tab]:
+                for widget in tab.winfo_children():
+                    if isinstance(widget, ttk.Frame):
+                        for child in widget.winfo_children():
+                            if isinstance(child, ttk.Frame):  # Button frames
+                                for btn in child.winfo_children():
+                                    if isinstance(btn, ttk.Button):
+                                        # Scale button padding
+                                        padx = max(2, int(5 * scale_factor))
+                                        pady = max(2, int(5 * scale_factor))
+                                        btn.grid_configure(padx=padx, pady=pady)
+            
+            # Ensure UI elements don't overlap
+            self._prevent_element_overlap(scale_factor)
+            
+        except Exception as e:
+            print(f"Error adjusting layout spacing: {str(e)}")
+    
+    def _prevent_element_overlap(self, scale_factor):
+        """Prevent UI elements from overlapping at different resolutions."""
+        try:
+            # Adjust minimum sizes for frames to prevent overlap
+            min_width = int(200 * scale_factor)
+            min_height = int(100 * scale_factor)
+            
+            # Update main tab frames
+            for widget in self.main_tab.winfo_children():
+                if isinstance(widget, ttk.Frame):
+                    # Set minimum size for frames
+                    widget.grid_configure(minsize=(min_width, min_height))
+                    
+                    # Adjust child elements
+                    for child in widget.winfo_children():
+                        if isinstance(child, ttk.LabelFrame):
+                            child.grid_configure(padx=int(5 * scale_factor), pady=int(5 * scale_factor))
+            
+            # Update admin tab frames
+            for widget in self.admin_tab.winfo_children():
+                if isinstance(widget, ttk.Frame):
+                    # Set minimum size for frames
+                    widget.grid_configure(minsize=(min_width, min_height))
+                    
+                    # Adjust child elements
+                    for child in widget.winfo_children():
+                        if isinstance(child, ttk.LabelFrame):
+                            child.grid_configure(padx=int(5 * scale_factor), pady=int(5 * scale_factor))
+            
+            # Ensure receipt displays have proper minimum size
+            if hasattr(self, 'receipt_text'):
+                receipt_frame = self.receipt_text.master
+                receipt_frame.grid_configure(minsize=(int(300 * scale_factor), int(200 * scale_factor)))
+            
+            if hasattr(self, 'model_text'):
+                model_frame = self.model_text.master
+                model_frame.grid_configure(minsize=(int(300 * scale_factor), int(200 * scale_factor)))
+            
+        except Exception as e:
+            print(f"Error preventing element overlap: {str(e)}")
+    
+    def _adjust_window_size(self, width, height):
+        """Adjust window size to ensure it fits within screen bounds and doesn't hide below taskbar."""
+        try:
+            # Get screen dimensions
+            screen_width = self.root.winfo_screenwidth()
+            screen_height = self.root.winfo_screenheight()
+            
+            # Ensure window doesn't exceed screen dimensions
+            if width > screen_width:
+                width = screen_width - 20  # Leave a small margin
+            
+            # Ensure window doesn't hide below taskbar
+            max_height = screen_height - self.taskbar_height - 20  # Leave margin for taskbar
+            if height > max_height:
+                height = max_height
+            
+            # Apply the adjusted window size
+            self.root.geometry(f"{width}x{height}")
+            
+            # Center the window on screen, ensuring it doesn't go below taskbar
+            x = (screen_width - width) // 2
+            y = (screen_height - height - self.taskbar_height) // 2
+            
+            # Ensure y position is not negative (window above screen)
+            y = max(0, y)
+            
+            self.root.geometry(f"+{x}+{y}")
+            
+            # Set window to be always on top temporarily to ensure it's visible
+            self.root.attributes('-topmost', True)
+            self.root.after(100, lambda: self.root.attributes('-topmost', False))
+            
+        except Exception as e:
+            print(f"Error adjusting window size: {str(e)}")
+    
+    def _scale_receipt_content(self, scale_factor):
+        """Scale receipt text content based on scale factor."""
+        try:
+            # Get current receipt content if it exists
+            if hasattr(self, 'current_input_data') and hasattr(self, 'current_result_data') and self.current_input_data and self.current_result_data:
+                # Regenerate receipt with scaled formatting
+                self._display_receipts(self.current_input_data, self.current_result_data)
+                
+                # Adjust font size in receipt text widget
+                base_font_size = 10
+                new_font_size = max(8, int(base_font_size * scale_factor))
+                receipt_font = ('Courier New', new_font_size)  # Use monospace font for better alignment
+                
+                # Apply font to receipt text widgets
+                self.receipt_text.config(font=receipt_font)
+                self.model_text.config(font=receipt_font)
+        except Exception as e:
+            print(f"Error scaling receipt content: {str(e)}")
+    
     # Helper methods
     
     def _get_form_data(self) -> dict:
@@ -837,16 +1077,16 @@ class BroadSpecGUI:
         }
     
     def _display_receipts(self, input_data: dict, result_data: dict):
-        """Display calculation results in receipt text areas."""
-        # Generate full receipt
+        """Display calculation results in both receipt text areas."""
+        # Generate full receipt for display
         full_receipt = self._generate_full_receipt(input_data, result_data)
-        self.full_receipt_text.delete(1.0, tk.END)
-        self.full_receipt_text.insert(1.0, full_receipt)
+        self.receipt_text.delete(1.0, tk.END)
+        self.receipt_text.insert(1.0, full_receipt)
         
-        # Generate simple receipt
-        simple_receipt = self._generate_simple_receipt(input_data, result_data)
-        self.simple_receipt_text.delete(1.0, tk.END)
-        self.simple_receipt_text.insert(1.0, simple_receipt)
+        # Generate model screenshot for payment confirmation
+        model_receipt = self._generate_model_receipt(input_data, result_data)
+        self.model_text.delete(1.0, tk.END)
+        self.model_text.insert(1.0, model_receipt)
     
     def _generate_full_receipt(self, input_data: dict, result_data: dict) -> str:
         """Generate full receipt text."""
@@ -987,6 +1227,31 @@ Advances:
   
 """
     
+    def _generate_model_receipt(self, input_data: dict, result_data: dict) -> str:
+        """Generate model receipt text for payment confirmation."""
+        equals_line = "=" * 30
+        
+        return f"""
+{equals_line}
+  PAYMENT CONFIRMATION
+{equals_line}
+
+Model: {input_data.get('model_name', '')}
+ID: {input_data.get('model_id', '')}
+Date: {result_data.get('date', '')}
+
+{equals_line}
+Total Payment: {format_currency_cop(result_data.get('total_cop', 0))}
+{equals_line}
+
+This is a payment confirmation
+for the model listed above.
+
+{equals_line}
+      BROADSPEC
+{equals_line}
+"""
+    
     def _format_size(self, size_bytes: int) -> str:
         """Format file size in human readable format."""
         try:
@@ -1107,46 +1372,27 @@ Advances:
             return
         
         try:
-            # Create temporary file for preview
+            # Generate the PDF to a temporary file for preview
             import tempfile
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                 temp_path = temp_file.name
             
-            # Generate PDF and get vault filename
-            pdf_path = self.controller.save_receipt(self.current_input_data, self.current_result_data)
+            # Generate the PDF using the controller
+            self.controller.generate_receipt_pdf(self.current_input_data, self.current_result_data, temp_path)
             
-            # Get the most recent vault entry
-            vault_entries = self.controller.get_vault_entries()
-            if not vault_entries:
-                messagebox.showerror("Error", "No vault entries found")
-                return
-                
-            # Get the most recent entry (last in list)
-            latest_entry = vault_entries[-1]
-            vault_filename = latest_entry.get('vault_filename')
-            
-            if not vault_filename:
-                messagebox.showerror("Error", "No vault filename found for latest entry")
-                return
-            
-            # Retrieve file from vault
-            file_bytes = self.controller.vault_repository.retrieve_file(vault_filename)
-            
-            # Write to temporary file
-            with open(temp_path, 'wb') as f:
-                f.write(file_bytes)
-            
-            # Load PDF in admin tab
-            self.admin_pdf_path_var.set(f"Vault: {vault_filename}")
+            # Load PDF in admin tab for preview
+            self.admin_pdf_path_var = tk.StringVar(value=f"Preview: {self.current_input_data.get('model_name', 'Unknown')}")
             if self.pdf_previewer.open_pdf(temp_path):
                 self.admin_update_pdf_display()
-                # Switch to admin tab
+                # Switch to admin tab to show preview
                 self.notebook.select(self.admin_tab)
+                messagebox.showinfo("Success", "PDF generated and loaded for preview")
             else:
                 messagebox.showerror("Error", "Failed to load PDF for preview")
                 
         except Exception as e:
-            messagebox.showerror("Error", f"Failed to preview PDF from vault: {str(e)}")
+            messagebox.showerror("Preview Error", f"Failed to preview PDF: {str(e)}")
+
     
     # Admin PDF Preview methods
     
@@ -1282,8 +1528,8 @@ Advances:
             with open(temp_path, 'wb') as f:
                 f.write(file_bytes)
             
-            # Load PDF in admin tab
-            self.admin_pdf_path_var.set(f"Vault: {vault_filename}")
+                        # Load PDF in admin tab
+            self.admin_pdf_path_var = tk.StringVar(value=f"Vault: {vault_filename}")
             if self.pdf_previewer.open_pdf(temp_path):
                 self.admin_update_pdf_display()
                 # Switch to admin tab
