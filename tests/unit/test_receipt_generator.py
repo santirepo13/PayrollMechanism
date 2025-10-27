@@ -86,7 +86,9 @@ class TestReceiptGenerator:
         filename = os.path.basename(pdf_path)
         assert '12345' in filename
         assert 'Test Model' in filename
-        assert '1000' in filename
+        assert '1000 TKS' in filename
+        assert '250.00 USD' in filename
+        assert '1.000.000 COP' in filename
         assert '2025-01-20' in filename
     
     def test_generate_pdf_creates_directory(self):
@@ -117,28 +119,15 @@ class TestReceiptGenerator:
     
     def test_generate_filename(self):
         """Test filename generation."""
-        filename = self.generator._generate_filename(self.test_input_data)
+        from broadspec.utils.pdf_protocols import generate_filename
+        filename = generate_filename(self.test_input_data, self.test_result)
         
         assert '12345' in filename
         assert 'Test Model' in filename
-        assert '1000' in filename
+        assert '1000 TKS' in filename
+        assert '250.00 USD' in filename
+        assert '1.000.000 COP' in filename
         assert filename.endswith('.pdf')
-    
-    def test_sanitize_filename(self):
-        """Test filename sanitization."""
-        # Test with invalid characters
-        invalid_name = "Test<>:\"/\\|?*Model"
-        sanitized = self.generator._sanitize_filename(invalid_name)
-        assert sanitized == "Test_________Model"
-        
-        # Test with trailing spaces and dots
-        trailing_name = "Test Model   ... "
-        sanitized = self.generator._sanitize_filename(trailing_name)
-        assert sanitized == "Test Model"
-        
-        # Test with empty name
-        sanitized = self.generator._sanitize_filename("")
-        assert sanitized == "unnamed"
     
     def test_format_other_sites_full(self):
         """Test formatting other sites for full receipt."""

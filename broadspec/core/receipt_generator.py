@@ -2,13 +2,13 @@
 PDF receipt generation for BroadSpec Payment Calculator.
 """
 import os
-from datetime import datetime
 from typing import Dict, Any
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
 from .models import CalculationResult
 from utils.formatters import format_currency_cop, format_currency_usd
+from utils.pdf_protocols import generate_filename
 from .exceptions import ReceiptGenerationError
 
 
@@ -30,7 +30,7 @@ class ReceiptGenerator:
             os.makedirs(self.receipts_path, exist_ok=True)
             
             # Generate filename
-            filename = self._generate_filename(data)
+            filename = generate_filename(data, result)
             filepath = os.path.join(self.receipts_path, filename)
             
             # Create PDF
@@ -54,27 +54,6 @@ class ReceiptGenerator:
             
         except Exception as e:
             raise ReceiptGenerationError(f"Failed to generate PDF: {str(e)}")
-    
-    def _generate_filename(self, data: Dict[str, Any]) -> str:
-        """Generate filename for PDF."""
-        date_str = datetime.now().strftime("%Y-%m-%d")
-        model_id = self._sanitize_filename(data.get('model_id', ''))
-        model_name = self._sanitize_filename(data.get('model_name', ''))
-        tokens = data.get('tokens', '')
-        
-        return f"{model_id} - {model_name} - {tokens} - {date_str}.pdf"
-    
-    def _sanitize_filename(self, name: str) -> str:
-        """Sanitize filename by removing forbidden characters."""
-        if not name:
-            return "unnamed"
-        
-        # Replace forbidden characters with underscore
-        import re
-        sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1F]', '_', name)
-        # Remove trailing spaces and dots
-        sanitized = sanitized.rstrip(' .')
-        return sanitized
     
     def _add_full_receipt(self, c: canvas.Canvas, data: Dict[str, Any], 
                          result: CalculationResult, width: float, height: float):
