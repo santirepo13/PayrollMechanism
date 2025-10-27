@@ -633,19 +633,75 @@ class BroadSpecGUI:
         except Exception as e:
             messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
     
-    def save_pdf(self):
-        """Save receipt as PDF."""
-        if not self.current_input_data or not self.current_result_data:
-            messagebox.showwarning("No Data", "Please calculate first before saving")
-            return
-        
+        def save_pdf(self):
+    
+            if not self.current_input_data or not self.current_result_data:
+                messagebox.showwarning("No Data", "Please calculate first before saving")
+                return
+
         try:
-            pdf_path = self.controller.save_receipt(self.current_input_data, self.current_result_data)
-            messagebox.showinfo("Success", f"PDF saved to:\n{pdf_path}")
+            # Generate PDF to a temporary file
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                temp_path = temp_file.name
+
+            # Use controller to generate the PDF to temp_path
+            # Controller is expected to provide generate_receipt_pdf(input, result, output_path)
+            if hasattr(self.controller, 'generate_receipt_pdf'):
+                self.controller.generate_receipt_pdf(self.current_input_data, self.current_result_data, temp_path)
+            else:
+                # Fallback: try save_receipt if available
+                if hasattr(self.controller, 'save_receipt'):
+                    # save_receipt may return a filesystem path; call it and copy to temp_path
+                    saved_path = self.controller.save_receipt(self.current_input_data, self.current_result_data)
+                    try:
+                        with open(saved_path, 'rb') as src, open(temp_path, 'wb') as dst:
+                            dst.write(src.read())
+                    except Exception:
+                        # If copying fails, remove temp and raise
+                        try:
+                            os.remove(temp_path)
+                        except Exception:
+                            pass
+                        raise
+                else:
+                    try:
+                        os.remove(temp_path)
+                    except Exception:
+                        pass
+                    raise Exception('Controller does not support PDF generation API')
+
+            # Import the generated PDF into the vault using controller.import_to_vault
+            if not hasattr(self.controller, 'import_to_vault'):
+                try:
+                    os.remove(temp_path)
+                except Exception:
+                    pass
+                raise Exception('Vault import API is not available on controller')
+
+            success_count, failure_count = self.controller.import_to_vault([temp_path])
+
+            # Remove temporary file after import
+            try:
+                os.remove(temp_path)
+            except Exception:
+                pass
+
+            if success_count > 0:
+                messagebox.showinfo('Saved to Vault', f'PDF saved to encrypted vault. Use Admin tab to export. Imported: {success_count}, Failed: {failure_count}')
+                # Refresh vault list
+                try:
+                    self.refresh_vault()
+                except Exception:
+                    pass
+            else:
+                messagebox.showwarning('Vault Import', f'No files were imported to the vault. Failures: {failure_count}')
+
         except BroadSpecError as e:
             messagebox.showerror("Save Error", str(e))
         except Exception as e:
             messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
+
     
     def export_selected(self):
         """Export selected vault entries."""
