@@ -8,7 +8,7 @@ from datetime import datetime
 from typing import Dict, Any, Optional
 from PIL import Image, ImageTk
 
-from core.exceptions import BroadSpecError, CalculationError, VaultError
+from broadspec.core.exceptions import BroadSpecError, CalculationError, VaultError
 from utils.formatters import format_currency_cop, format_currency_usd
 from utils.pdf_preview import PDFPreviewer
 
@@ -615,50 +615,35 @@ class BroadSpecGUI:
     def calculate(self):
         """Perform payment calculation."""
         try:
-            # Get form data
-            form_data = self._get_form_data()
-            
-            # Calculate using controller
-            input_data, result_data = self.controller.calculate_payment(form_data)
-            
-            # Store results
-            self.current_input_data = input_data
-            self.current_result_data = result_data
-            
-            # Display receipts
-            self._display_receipts(input_data, result_data)
-            
+                form_data = self._get_form_data()
+                input_data, result_data = self.controller.calculate_payment(form_data)
+                self.current_input_data = input_data
+                self.current_result_data = result_data
+                self._display_receipts(input_data, result_data)
         except BroadSpecError as e:
-            messagebox.showerror("Calculation Error", str(e))
+                messagebox.showerror("Calculation Error", str(e))
         except Exception as e:
-            messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
-    
-        def save_pdf(self):
-    
-            if not self.current_input_data or not self.current_result_data:
-                messagebox.showwarning("No Data", "Please calculate first before saving")
-                return
+                messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
+
+    def save_pdf(self):
+        if not self.current_input_data or not self.current_result_data:
+            messagebox.showwarning("No Data", "Please calculate first before saving")
+            return
 
         try:
-            # Generate PDF to a temporary file
             import tempfile
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                 temp_path = temp_file.name
 
-            # Use controller to generate the PDF to temp_path
-            # Controller is expected to provide generate_receipt_pdf(input, result, output_path)
             if hasattr(self.controller, 'generate_receipt_pdf'):
                 self.controller.generate_receipt_pdf(self.current_input_data, self.current_result_data, temp_path)
             else:
-                # Fallback: try save_receipt if available
                 if hasattr(self.controller, 'save_receipt'):
-                    # save_receipt may return a filesystem path; call it and copy to temp_path
                     saved_path = self.controller.save_receipt(self.current_input_data, self.current_result_data)
                     try:
                         with open(saved_path, 'rb') as src, open(temp_path, 'wb') as dst:
                             dst.write(src.read())
                     except Exception:
-                        # If copying fails, remove temp and raise
                         try:
                             os.remove(temp_path)
                         except Exception:
@@ -671,7 +656,6 @@ class BroadSpecGUI:
                         pass
                     raise Exception('Controller does not support PDF generation API')
 
-            # Import the generated PDF into the vault using controller.import_to_vault
             if not hasattr(self.controller, 'import_to_vault'):
                 try:
                     os.remove(temp_path)
@@ -681,7 +665,6 @@ class BroadSpecGUI:
 
             success_count, failure_count = self.controller.import_to_vault([temp_path])
 
-            # Remove temporary file after import
             try:
                 os.remove(temp_path)
             except Exception:
@@ -689,7 +672,6 @@ class BroadSpecGUI:
 
             if success_count > 0:
                 messagebox.showinfo('Saved to Vault', f'PDF saved to encrypted vault. Use Admin tab to export. Imported: {success_count}, Failed: {failure_count}')
-                # Refresh vault list
                 try:
                     self.refresh_vault()
                 except Exception:
@@ -701,6 +683,12 @@ class BroadSpecGUI:
             messagebox.showerror("Save Error", str(e))
         except Exception as e:
             messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
+
+
+
+
+
+
 
     
     def export_selected(self):
