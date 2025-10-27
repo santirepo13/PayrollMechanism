@@ -1,13 +1,16 @@
 """
 Main GUI window for BroadSpec Payment Calculator.
 """
+import os
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 from typing import Dict, Any, Optional
+from PIL import Image, ImageTk
 
 from core.exceptions import BroadSpecError, CalculationError, VaultError
 from utils.formatters import format_currency_cop, format_currency_usd
+from utils.pdf_preview import PDFPreviewer
 
 
 class BroadSpecGUI:
@@ -22,6 +25,9 @@ class BroadSpecGUI:
         # Store current calculation data
         self.current_input_data = None
         self.current_result_data = None
+        
+        # Initialize PDF previewer
+        self.pdf_previewer = PDFPreviewer(config)
         
         # Set up window properties
         self.root.title("BroadSpec Payment Calculator")
@@ -227,6 +233,7 @@ class BroadSpecGUI:
         save_btn = ttk.Button(buttons_frame, text="Save PDF", command=self.save_pdf)
         save_btn.grid(row=0, column=2, padx=5)
         
+        
         # Add initial fields
         self.add_advance_field()
         self.add_other_site_field()
@@ -283,6 +290,7 @@ class BroadSpecGUI:
         # Listbox for vault entries
         self.vault_listbox = tk.Listbox(vault_frame, width=100, height=20, selectmode=tk.EXTENDED)
         self.vault_listbox.grid(row=0, column=0, rowspan=4, sticky=(tk.W, tk.N))
+        self.vault_listbox.bind('<Double-Button-1>', self.on_vault_double_click)
         
         scrollbar = ttk.Scrollbar(vault_frame, orient=tk.VERTICAL, command=self.vault_listbox.yview)
         scrollbar.grid(row=0, column=1, rowspan=4, sticky=(tk.N, tk.S))
@@ -316,6 +324,172 @@ class BroadSpecGUI:
         
         # Initial load
         self.refresh_vault()
+        
+        # Add PDF preview section to admin tab
+        self._create_pdf_preview_in_admin()
+    
+    def _create_pdf_preview_tab(self):
+        """Create the PDF preview tab."""
+        if not self.pdf_previewer.is_enabled():
+            # Show message if PDF preview is disabled
+            no_preview_label = ttk.Label(
+                self.pdf_preview_tab,
+                text="PDF Preview is disabled in configuration",
+                font=('Arial', 12)
+            )
+            no_preview_label.pack(pady=50)
+            return
+        
+        # Create PDF preview UI
+        preview_frame = ttk.Frame(self.pdf_preview_tab, padding="10")
+        preview_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=10, padx=10)
+        
+        # Configure grid weights
+        try:
+            self.pdf_preview_tab.rowconfigure(0, weight=1)
+            self.pdf_preview_tab.columnconfigure(0, weight=1)
+            preview_frame.rowconfigure(1, weight=1)
+            preview_frame.columnconfigure(0, weight=1)
+        except Exception:
+            pass
+        
+        # Controls frame
+        controls_frame = ttk.Frame(preview_frame)
+        controls_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        # File selection
+        ttk.Label(controls_frame, text="PDF File:").grid(row=0, column=0, padx=(0, 5))
+        self.pdf_path_var = tk.StringVar()
+        self.pdf_path_entry = ttk.Entry(controls_frame, textvariable=self.pdf_path_var, width=60)
+        self.pdf_path_entry.grid(row=0, column=1, padx=(0, 5))
+        
+        browse_btn = ttk.Button(controls_frame, text="Browse", command=self.browse_pdf)
+        browse_btn.grid(row=0, column=2, padx=(0, 5))
+        
+        load_btn = ttk.Button(controls_frame, text="Load", command=self.load_pdf)
+        load_btn.grid(row=0, column=3)
+        
+        # Navigation controls
+        nav_frame = ttk.Frame(preview_frame)
+        nav_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        ttk.Button(nav_frame, text="Previous", command=self.prev_page).grid(row=0, column=0, padx=(0, 5))
+        ttk.Button(nav_frame, text="Next", command=self.next_page).grid(row=0, column=1, padx=(0, 5))
+        
+        ttk.Label(nav_frame, text="Page:").grid(row=0, column=2, padx=(10, 2))
+        self.page_var = tk.StringVar(value="0 / 0")
+        ttk.Label(nav_frame, textvariable=self.page_var).grid(row=0, column=3, padx=(0, 10))
+        
+        ttk.Label(nav_frame, text="Zoom:").grid(row=0, column=4, padx=(10, 2))
+        self.zoom_var = tk.StringVar(value="100%")
+        zoom_combo = ttk.Combobox(nav_frame, textvariable=self.zoom_var, width=8, state='readonly')
+        zoom_combo['values'] = ('50%', '75%', '100%', '125%', '150%', '200%')
+        zoom_combo.current(2)
+        zoom_combo.bind('<<ComboboxSelected>>', self.on_zoom_change)
+        zoom_combo.grid(row=0, column=5)
+        
+        # Create scrollable canvas for PDF display
+        canvas_frame = ttk.Frame(preview_frame)
+        canvas_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        try:
+            canvas_frame.rowconfigure(0, weight=1)
+            canvas_frame.columnconfigure(0, weight=1)
+        except Exception:
+            pass
+        
+        self.pdf_canvas = tk.Canvas(canvas_frame, bg="white")
+        self.pdf_v_scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.pdf_canvas.yview)
+        self.pdf_h_scrollbar = ttk.Scrollbar(canvas_frame, orient="horizontal", command=self.pdf_canvas.xview)
+        
+        self.pdf_canvas.configure(yscrollcommand=self.pdf_v_scrollbar.set, xscrollcommand=self.pdf_h_scrollbar.set)
+        
+        self.pdf_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        self.pdf_v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        self.pdf_h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        # Store reference to current image to prevent garbage collection
+        self.current_pdf_image = None
+    
+    def _create_pdf_preview_in_admin(self):
+        """Create PDF preview section in admin tab."""
+        if not self.pdf_previewer.is_enabled():
+            # Show message if PDF preview is disabled
+            no_preview_label = ttk.Label(
+                self.admin_tab,
+                text="PDF Preview is disabled in configuration",
+                font=('Arial', 10)
+            )
+            no_preview_label.grid(row=1, column=0, columnspan=4, pady=10)
+            return
+        
+        # Create PDF preview frame in admin tab
+        pdf_preview_frame = ttk.LabelFrame(self.admin_tab, text="PDF Preview", padding="10")
+        pdf_preview_frame.grid(row=1, column=0, columnspan=4, sticky=(tk.W, tk.E), pady=10, padx=10)
+        
+        # Configure grid weights for pdf_preview_frame
+        try:
+            pdf_preview_frame.rowconfigure(1, weight=1)
+            pdf_preview_frame.columnconfigure(0, weight=1)
+        except Exception:
+            pass
+        
+        # File selection
+        file_frame = ttk.Frame(pdf_preview_frame)
+        file_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        ttk.Label(file_frame, text="PDF File:").grid(row=0, column=0, padx=(0, 5))
+        self.admin_pdf_path_var = tk.StringVar()
+        self.admin_pdf_path_entry = ttk.Entry(file_frame, textvariable=self.admin_pdf_path_var, width=50)
+        self.admin_pdf_path_entry.grid(row=0, column=1, padx=(0, 5))
+        
+        admin_browse_btn = ttk.Button(file_frame, text="Browse", command=self.admin_browse_pdf)
+        admin_browse_btn.grid(row=0, column=2, padx=(0, 5))
+        
+        admin_load_btn = ttk.Button(file_frame, text="Load", command=self.admin_load_pdf)
+        admin_load_btn.grid(row=0, column=3)
+        
+        # Create scrollable canvas for PDF display
+        canvas_frame = ttk.Frame(pdf_preview_frame)
+        canvas_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        
+        try:
+            canvas_frame.rowconfigure(0, weight=1)
+            canvas_frame.columnconfigure(0, weight=1)
+        except Exception:
+            pass
+        
+        self.admin_pdf_canvas = tk.Canvas(canvas_frame, bg="white", width=600, height=400)
+        admin_pdf_v_scrollbar = ttk.Scrollbar(canvas_frame, orient="vertical", command=self.admin_pdf_canvas.yview)
+        admin_pdf_h_scrollbar = ttk.Scrollbar(canvas_frame, orient="horizontal", command=self.admin_pdf_canvas.xview)
+        
+        self.admin_pdf_canvas.configure(yscrollcommand=admin_pdf_v_scrollbar.set, xscrollcommand=admin_pdf_h_scrollbar.set)
+        
+        self.admin_pdf_canvas.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        admin_pdf_v_scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
+        admin_pdf_h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        
+        # Navigation controls
+        nav_frame = ttk.Frame(pdf_preview_frame)
+        nav_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), pady=(10, 0))
+        
+        ttk.Button(nav_frame, text="Previous", command=self.admin_prev_page).grid(row=0, column=0, padx=(0, 5))
+        ttk.Button(nav_frame, text="Next", command=self.admin_next_page).grid(row=0, column=1, padx=(0, 5))
+        
+        ttk.Label(nav_frame, text="Page:").grid(row=0, column=2, padx=(10, 2))
+        self.admin_page_var = tk.StringVar(value="0 / 0")
+        ttk.Label(nav_frame, textvariable=self.admin_page_var).grid(row=0, column=3, padx=(0, 10))
+        
+        ttk.Label(nav_frame, text="Zoom:").grid(row=0, column=4, padx=(10, 2))
+        self.admin_zoom_var = tk.StringVar(value="100%")
+        admin_zoom_combo = ttk.Combobox(nav_frame, textvariable=self.admin_zoom_var, width=8, state='readonly')
+        admin_zoom_combo['values'] = ('50%', '75%', '100%', '125%', '150%', '200%')
+        admin_zoom_combo.current(2)
+        admin_zoom_combo.bind('<<ComboboxSelected>>', self.admin_on_zoom_change)
+        admin_zoom_combo.grid(row=0, column=5)
+        
+        # Store reference to current image to prevent garbage collection
+        self.admin_current_pdf_image = None
     
     # Event handlers
     
@@ -823,3 +997,299 @@ Advances:
             return f"{size_bytes:.1f} PB"
         except Exception:
             return f"{size_bytes} B"
+    
+    # PDF Preview methods
+    
+    def browse_pdf(self):
+        """Browse for a PDF file."""
+        filepath = filedialog.askopenfilename(
+            title="Select PDF file",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+        )
+        if filepath:
+            self.pdf_path_var.set(filepath)
+    
+    def load_pdf(self):
+        """Load the selected PDF file."""
+        pdf_path = self.pdf_path_var.get().strip()
+        if not pdf_path:
+            messagebox.showwarning("No File", "Please select a PDF file")
+            return
+        
+        if not os.path.exists(pdf_path):
+            messagebox.showerror("File Not Found", f"The file {pdf_path} does not exist")
+            return
+        
+        if self.pdf_previewer.open_pdf(pdf_path):
+            self.update_pdf_display()
+            messagebox.showinfo("Success", "PDF loaded successfully")
+        else:
+            messagebox.showerror("Error", "Failed to load PDF file")
+    
+    def update_pdf_display(self):
+        """Update the PDF display with the current page."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        # Update page counter
+        current_page = self.pdf_previewer.get_current_page() + 1  # Convert to 1-indexed
+        total_pages = self.pdf_previewer.get_page_count()
+        self.page_var.set(f"{current_page} / {total_pages}")
+        
+        # Get current zoom level
+        zoom_str = self.zoom_var.get()
+        zoom = float(zoom_str.rstrip('%')) / 100.0
+        self.pdf_previewer.set_zoom(zoom)
+        
+        # Get page image
+        tk_image = self.pdf_previewer.get_page_tk_image()
+        if tk_image:
+            # Clear canvas
+            self.pdf_canvas.delete("all")
+            
+            # Store reference to prevent garbage collection
+            self.current_pdf_image = tk_image
+            
+            # Calculate position to center image
+            canvas_width = self.pdf_canvas.winfo_width()
+            canvas_height = self.pdf_canvas.winfo_height()
+            
+            # If canvas hasn't been rendered yet, use default size
+            if canvas_width <= 1:
+                canvas_width = 800
+            if canvas_height <= 1:
+                canvas_height = 600
+            
+            img_width = tk_image.width()
+            img_height = tk_image.height()
+            
+            # Calculate scroll region
+            self.pdf_canvas.configure(scrollregion=(0, 0, img_width, img_height))
+            
+            # Place image at top-left of canvas
+            self.pdf_canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
+    
+    def prev_page(self):
+        """Go to the previous page."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        current_page = self.pdf_previewer.get_current_page()
+        if current_page > 0:
+            self.pdf_previewer.set_current_page(current_page - 1)
+            self.update_pdf_display()
+    
+    def next_page(self):
+        """Go to the next page."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        current_page = self.pdf_previewer.get_current_page()
+        total_pages = self.pdf_previewer.get_page_count()
+        if current_page < total_pages - 1:
+            self.pdf_previewer.set_current_page(current_page + 1)
+            self.update_pdf_display()
+    
+    def on_zoom_change(self, event):
+        """Handle zoom level change."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        zoom_str = self.zoom_var.get()
+        zoom = float(zoom_str.rstrip('%')) / 100.0
+        self.pdf_previewer.set_zoom(zoom)
+        self.update_pdf_display()
+    
+    def preview_last_pdf(self):
+        """Preview the last generated PDF receipt."""
+        if not self.current_input_data or not self.current_result_data:
+            messagebox.showwarning("No Data", "Please calculate first before previewing")
+            return
+        
+        try:
+            # Create temporary file for preview
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                temp_path = temp_file.name
+            
+            # Generate PDF and get vault filename
+            pdf_path = self.controller.save_receipt(self.current_input_data, self.current_result_data)
+            
+            # Get the most recent vault entry
+            vault_entries = self.controller.get_vault_entries()
+            if not vault_entries:
+                messagebox.showerror("Error", "No vault entries found")
+                return
+                
+            # Get the most recent entry (last in list)
+            latest_entry = vault_entries[-1]
+            vault_filename = latest_entry.get('vault_filename')
+            
+            if not vault_filename:
+                messagebox.showerror("Error", "No vault filename found for latest entry")
+                return
+            
+            # Retrieve file from vault
+            file_bytes = self.controller.vault_repository.retrieve_file(vault_filename)
+            
+            # Write to temporary file
+            with open(temp_path, 'wb') as f:
+                f.write(file_bytes)
+            
+            # Load PDF in admin tab
+            self.admin_pdf_path_var.set(f"Vault: {vault_filename}")
+            if self.pdf_previewer.open_pdf(temp_path):
+                self.admin_update_pdf_display()
+                # Switch to admin tab
+                self.notebook.select(self.admin_tab)
+            else:
+                messagebox.showerror("Error", "Failed to load PDF for preview")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to preview PDF from vault: {str(e)}")
+    
+    # Admin PDF Preview methods
+    
+    def admin_browse_pdf(self):
+        """Browse for a PDF file in admin tab."""
+        filepath = filedialog.askopenfilename(
+            title="Select PDF file",
+            filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
+        )
+        if filepath:
+            self.admin_pdf_path_var.set(filepath)
+    
+    def admin_load_pdf(self):
+        """Load selected PDF file in admin tab."""
+        pdf_path = self.admin_pdf_path_var.get().strip()
+        if not pdf_path:
+            messagebox.showwarning("No File", "Please select a PDF file")
+            return
+        
+        if not os.path.exists(pdf_path):
+            messagebox.showerror("File Not Found", f"The file {pdf_path} does not exist")
+            return
+        
+        if self.pdf_previewer.open_pdf(pdf_path):
+            self.admin_update_pdf_display()
+            messagebox.showinfo("Success", "PDF loaded successfully")
+        else:
+            messagebox.showerror("Error", "Failed to load PDF file")
+    
+    def admin_update_pdf_display(self):
+        """Update PDF display in admin tab with current page."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        # Update page counter
+        current_page = self.pdf_previewer.get_current_page() + 1  # Convert to 1-indexed
+        total_pages = self.pdf_previewer.get_page_count()
+        self.admin_page_var.set(f"{current_page} / {total_pages}")
+        
+        # Get current zoom level
+        zoom_str = self.admin_zoom_var.get()
+        zoom = float(zoom_str.rstrip('%')) / 100.0
+        self.pdf_previewer.set_zoom(zoom)
+        
+        # Get page image
+        tk_image = self.pdf_previewer.get_page_tk_image()
+        if tk_image:
+            # Clear canvas
+            self.admin_pdf_canvas.delete("all")
+            
+            # Store reference to prevent garbage collection
+            self.admin_current_pdf_image = tk_image
+            
+            # Calculate position to center image
+            canvas_width = self.admin_pdf_canvas.winfo_width()
+            canvas_height = self.admin_pdf_canvas.winfo_height()
+            
+            # If canvas hasn't been rendered yet, use default size
+            if canvas_width <= 1:
+                canvas_width = 600
+            if canvas_height <= 1:
+                canvas_height = 400
+            
+            img_width = tk_image.width()
+            img_height = tk_image.height()
+            
+            # Calculate scroll region
+            self.admin_pdf_canvas.configure(scrollregion=(0, 0, img_width, img_height))
+            
+            # Place image at top-left of canvas
+            self.admin_pdf_canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
+    
+    def admin_prev_page(self):
+        """Go to previous page in admin tab."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        current_page = self.pdf_previewer.get_current_page()
+        if current_page > 0:
+            self.pdf_previewer.set_current_page(current_page - 1)
+            self.admin_update_pdf_display()
+    
+    def admin_next_page(self):
+        """Go to next page in admin tab."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        current_page = self.pdf_previewer.get_current_page()
+        total_pages = self.pdf_previewer.get_page_count()
+        if current_page < total_pages - 1:
+            self.pdf_previewer.set_current_page(current_page + 1)
+            self.admin_update_pdf_display()
+    
+    def admin_on_zoom_change(self, event):
+        """Handle zoom level change in admin tab."""
+        if not self.pdf_previewer.current_doc:
+            return
+        
+        zoom_str = self.admin_zoom_var.get()
+        zoom = float(zoom_str.rstrip('%')) / 100.0
+        self.pdf_previewer.set_zoom(zoom)
+        self.admin_update_pdf_display()
+    
+    def on_vault_double_click(self, event):
+        """Handle double-click on vault item to preview PDF"""
+        selected_indices = self.vault_listbox.curselection()
+        if not selected_indices:
+            return
+        
+        selected_index = selected_indices[0]
+        
+        # Get vault entry data
+        if selected_index >= len(self.vault_entries):
+            return
+            
+        entry = self.vault_entries[selected_index]
+        vault_filename = entry.get('vault_filename')
+        
+        if not vault_filename:
+            messagebox.showerror("Error", "No vault filename found for selected entry")
+            return
+        
+        try:
+            # Create temporary file for preview
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
+                temp_path = temp_file.name
+            
+            # Retrieve file from vault
+            file_bytes = self.controller.vault_repository.retrieve_file(vault_filename)
+            
+            # Write to temporary file
+            with open(temp_path, 'wb') as f:
+                f.write(file_bytes)
+            
+            # Load PDF in admin tab
+            self.admin_pdf_path_var.set(f"Vault: {vault_filename}")
+            if self.pdf_previewer.open_pdf(temp_path):
+                self.admin_update_pdf_display()
+                # Switch to admin tab
+                self.notebook.select(self.admin_tab)
+            else:
+                messagebox.showerror("Error", "Failed to load PDF for preview")
+                
+        except Exception as e:
+            messagebox.showerror("Error", f"Failed to preview PDF from vault: {str(e)}")

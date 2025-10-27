@@ -6,6 +6,7 @@ app:
 ui:
   default_width: 1900
   default_height: 1064
+  pdf_preview_enabled: true
   themes:
     - name: "default"
       colors:
