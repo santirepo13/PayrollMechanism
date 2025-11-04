@@ -9,8 +9,8 @@ from typing import Dict, Any, Optional
 from PIL import Image, ImageTk
 
 from broadspec.core.exceptions import BroadSpecError, CalculationError, VaultError
-from utils.formatters import format_currency_cop, format_currency_usd
-from utils.pdf_preview import PDFPreviewer
+from broadspec.utils.formatters import format_currency_cop, format_currency_usd
+from broadspec.utils.pdf_preview import PDFPreviewer
 
 
 class BroadSpecGUI:
@@ -88,9 +88,10 @@ class BroadSpecGUI:
         try:
             self.main_tab.rowconfigure(0, weight=1)
             self.main_tab.columnconfigure(0, weight=1)
-            main_frame.columnconfigure(0, weight=1)
-            main_frame.columnconfigure(1, weight=2)
-            main_frame.columnconfigure(2, weight=1)
+            # Keep the input column compact and allow receipt area to expand
+            main_frame.columnconfigure(0, weight=0, minsize=320)
+            main_frame.columnconfigure(1, weight=3)
+            main_frame.columnconfigure(2, weight=0)
             main_frame.rowconfigure(1, weight=1)
             main_frame.rowconfigure(2, weight=0)  # For action buttons
         except Exception:
@@ -253,7 +254,7 @@ class BroadSpecGUI:
         except Exception:
             pass
         
-        self.receipt_text = tk.Text(full_receipt_frame, wrap='none')
+        self.receipt_text = tk.Text(full_receipt_frame, wrap='none', font=('Courier', 10), width=80)
         self.receipt_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         scrollbar = ttk.Scrollbar(full_receipt_frame, orient=tk.VERTICAL, command=self.receipt_text.yview)
@@ -270,7 +271,7 @@ class BroadSpecGUI:
         except Exception:
             pass
         
-        self.model_text = tk.Text(model_frame, wrap='none', height=15)
+        self.model_text = tk.Text(model_frame, wrap='none', height=15, font=('Courier', 10), width=50)
         self.model_text.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         
         model_scrollbar = ttk.Scrollbar(model_frame, orient=tk.VERTICAL, command=self.model_text.yview)
@@ -1156,10 +1157,12 @@ class BroadSpecGUI:
         if advances_display:
             advances_display += "\n"
         
-        # Format fines
-        fines_display = result_data.get('fines_display', '')
-        if not result_data.get('show_fines', True):
-            fines_display = "Fines: Disabled (Home Worker)"
+        # Build fines section: omit entirely when fines are not shown
+        if result_data.get('show_fines', True):
+            fines_display = result_data.get('fines_display', '')
+            fines_section = f"\nFINES:\n  {fines_display}\n"
+        else:
+            fines_section = ""
         
         return f"""
 {equals_line}
@@ -1181,11 +1184,7 @@ INPUT VALUES:
   Previous Fortnight USD: {format_currency_usd(input_data.get('previous_fortnight_usd', 0))}
   
 ADVANCES:
-{advances_display}  Total: {format_currency_cop(result_data.get('advances_total', 0))}
-  
-FINES:
-  {fines_display}
-  
+{advances_display}  Total: {format_currency_cop(result_data.get('advances_total', 0))}{fines_section}
 CALCULATED VALUES:
   USD from Tokens: {format_currency_usd(result_data.get('usd_from_tokens', 0))}
   Net Amount USD: {format_currency_usd(result_data.get('net_usd', 0))}
@@ -1272,29 +1271,111 @@ Advances:
 """
     
     def _generate_model_receipt(self, input_data: dict, result_data: dict) -> str:
-        """Generate model receipt text for payment confirmation."""
-        equals_line = "=" * 30
-        
-        return f"""
-{equals_line}
-  PAYMENT CONFIRMATION
-{equals_line}
+        """Generate model receipt text for payment confirmation in a compact, legacy-friendly format.
 
-Model: {input_data.get('model_name', '')}
-ID: {input_data.get('model_id', '')}
-Date: {result_data.get('date', '')}
+        Produces an organized layout suitable for both validation screenshots and
+        the compact 'model screenshot' used in the app. Rules applied:
+          - Header is centered.
+          - Advances section is omitted if there are no advances with amount > 0.
+          - Fines are omitted when show_fines is False (home worker).
+          - Missing or zero-value fields produce empty/blank lines so layout remains stable.
+        """
+        # Width used for centering header in monospace output
+        width = 38
+        header_lines = [
+            "BROADSPEC".center(width),
+            "Payment Summary".center(width)
+        ]
+        separator = "-" * width
 
-{equals_line}
-Total Payment: {format_currency_cop(result_data.get('total_cop', 0))}
-{equals_line}
+        # Safe converters
+        def safe_float(v, default=0.0):
+            try:
+                return float(v)
+            except Exception:
+                return default
 
-This is a payment confirmation
-for the model listed above.
+        def safe_int(v, default=0):
+            try:
+                return int(v)
+            except Exception:
+                return default
 
-{equals_line}
-      BROADSPEC
-{equals_line}
-"""
+        # Extract core fields with safe defaults
+        date = result_data.get('date', '')
+        model_id = input_data.get('model_id', '') or ''
+        model_name = input_data.get('model_name', '') or ''
+        trm_official = format_currency_cop(safe_float(input_data.get('trm_official_cop', 0)))
+        trm_broadspec = format_currency_cop(safe_float(result_data.get('trm_broadspec_cop', 0)))
+        tokens = f"{safe_int(input_data.get('tokens', 0)):,}"
+        percentage = input_data.get('percentage', 0)
+
+        # Other sites: include only entries with amount > 0, show USD or TKS accordingly
+        other_sites_lines = []
+        for i, site in enumerate(input_data.get('other_sites', []), start=2):
+            amt = safe_float(site.get('amount', 0))
+            if amt <= 0:
+                continue
+            if site.get('site_type') == 'USD':
+                other_sites_lines.append(f"  Site {i}: {format_currency_usd(amt)}")
+            else:
+                other_sites_lines.append(f"  Site {i}: {int(amt):,} TKS")
+
+        # Advances: include only advances with amount > 0
+        advances_lines = []
+        for adv in input_data.get('advances', []):
+            amt = safe_float(adv.get('amount', 0))
+            if amt > 0:
+                adv_date = adv.get('date', '')
+                advances_lines.append(f"  {adv_date}: {format_currency_cop(amt)}")
+
+        # Build ordered receipt lines to match the provided example
+        parts = []
+        parts.extend(header_lines)
+        parts.append("")  # blank line
+        parts.append(separator)
+        parts.append(f"Date: {date}")
+        parts.append("")  # blank
+        parts.append(f"ID: {model_id}")
+        parts.append("")  # blank
+        parts.append(f"Model: {model_name}")
+        parts.append("")  # blank
+        parts.append(f"TRM Official: {trm_official}")
+        parts.append(f"TRM BroadSpec: {trm_broadspec}")
+        parts.append("")  # blank
+        parts.append(f"Tokens: {tokens}")
+        parts.append("")  # blank
+        parts.append("Other Sites:")
+        # leave a blank line under Other Sites to match the visual example
+        if other_sites_lines:
+            parts.append("")  # blank
+            parts.extend(other_sites_lines)
+        else:
+            parts.append("")  # blank to indicate empty area
+
+        parts.append("")  # blank
+        parts.append(f"Percentage: {percentage:.0%}")
+
+        # Only include Advances section if there are any positive advances
+        if advances_lines:
+            parts.append("")  # blank
+            parts.append("Advances:")
+            parts.extend(advances_lines)
+
+        # Fines: show only when allowed
+        if result_data.get('show_fines', True):
+            parts.append("")  # blank
+            parts.append(f"Fines: {format_currency_cop(safe_float(result_data.get('fines_total', 0)))}")
+
+        parts.append("")  # blank
+        parts.append("Total Payment:")
+        parts.append(f"{format_currency_cop(safe_float(result_data.get('total_cop', 0)))}")
+        parts.append("")  # blank
+        parts.append(separator)
+
+        # Return with leading/trailing newlines for consistent spacing in the text widget
+        return "\n" + "\n".join(parts) + "\n"
+
     
     def _format_size(self, size_bytes: int) -> str:
         """Format file size in human readable format."""

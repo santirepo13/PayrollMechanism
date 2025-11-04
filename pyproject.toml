@@ -1,0 +1,15 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "broadspec"
+version = "0.0.1"
+description = "BroadSpec Payment Calculator"
+authors = [ { name = "BroadSpec" } ]
+readme = "README.md"
+requires-python = ">=3.8"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["broadspec*"]
