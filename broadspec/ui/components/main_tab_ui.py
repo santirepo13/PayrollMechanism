@@ -1,6 +1,3 @@
-"""
-Main tab UI components for BroadSpec Payment Calculator.
-"""
 import tkinter as tk
 from tkinter import ttk
 from datetime import datetime
@@ -14,38 +11,31 @@ class MainTabUI:
         self.parent_tab = parent_tab
         self.window_setup = window_setup
         
-        # Initialize lists for dynamic fields
         self.advances_entries = []
         self.other_sites_entries = []
         
-        # Create the main tab
         self._create_main_tab()
     
     def _create_main_tab(self):
         """Create the main calculator tab."""
-        # Main tab frame
         main_frame = ttk.Frame(self.parent_tab, padding="10")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Configure grid weights
         try:
             self.parent_tab.rowconfigure(0, weight=1)
             self.parent_tab.columnconfigure(0, weight=1)
-            # Keep the input column compact and allow receipt area to expand
             main_frame.columnconfigure(0, weight=0, minsize=320)
             main_frame.columnconfigure(1, weight=3)
             main_frame.columnconfigure(2, weight=0)
             main_frame.rowconfigure(1, weight=1)
-            main_frame.rowconfigure(2, weight=0)  # For action buttons
+            main_frame.rowconfigure(2, weight=0)
         except Exception:
             pass
         
-        # Title
         title = ttk.Label(main_frame, text="BROADSPEC PAYMENT CALCULATOR",
                          font=('Arial', 16, 'bold'))
         title.grid(row=0, column=0, columnspan=3, pady=(0, 10))
         
-        # Input fields column
         input_frame = ttk.Frame(main_frame)
         input_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.E, tk.S), padx=(0, 10))
         
@@ -57,14 +47,11 @@ class MainTabUI:
         
         self._create_input_fields(input_frame)
         
-        # Receipt displays
         self._create_receipt_displays(main_frame)
         
-        # Action buttons frame - create buttons but don't set commands yet
         self.action_frame = ttk.Frame(main_frame)
         self.action_frame.grid(row=2, column=1, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
         
-        # Store button references - commands will be set after component initialization
         self.calculate_btn = ttk.Button(self.action_frame, text="Calculate")
         self.calculate_btn.pack(side=tk.LEFT, padx=5)
         
@@ -80,19 +67,16 @@ class MainTabUI:
         """Create input field widgets."""
         row = 0
         
-        # Model ID
         ttk.Label(parent, text="Model ID #:", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.model_id = ttk.Entry(parent, width=20)
         self.model_id.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # Model name
         ttk.Label(parent, text="Model Name:", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.model_name = ttk.Entry(parent, width=20)
         self.model_name.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # TRM inputs
         ttk.Label(parent, text="TRM Official $COP (NOT NULL):", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.trm_official_cop = ttk.Entry(parent, width=20)
         self.trm_official_cop.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
@@ -103,13 +87,11 @@ class MainTabUI:
         self.btk_trm_cop.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # Tokens
         ttk.Label(parent, text="Tokens (TKS):", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.tokens = ttk.Entry(parent, width=20)
         self.tokens.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # Percentage
         ttk.Label(parent, text="Percentage:", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.percentage = ttk.Combobox(parent, width=17, state='readonly')
         self.percentage['values'] = ('60%', '70%', '75%')
@@ -118,7 +100,6 @@ class MainTabUI:
         self.percentage.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # Other Sites section
         ttk.Label(parent, text="Other Sites (USD or TKS):", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(5,5))
         row += 1
         
@@ -132,14 +113,12 @@ class MainTabUI:
         add_other_site_btn.pack(pady=5)
         row += 1
         
-        # Previous Fortnight
         ttk.Label(parent, text="Previous Fortnight USD:", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.previous_fortnight_usd = ttk.Entry(parent, width=20)
         self.previous_fortnight_usd.insert(0, "0")
         self.previous_fortnight_usd.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # Advances section
         ttk.Label(parent, text="Advances:", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(10,5))
         row += 1
         
@@ -153,7 +132,6 @@ class MainTabUI:
         add_advance_btn.pack(pady=5)
         row += 1
         
-        # Fines section
         self.fines_label = ttk.Label(parent, text="Fines (Studio only):", font=('Arial', 10, 'bold'))
         self.fines_label.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(10,5))
         row += 1
@@ -171,14 +149,12 @@ class MainTabUI:
         self.custom_fine_cop.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
         
-        # Add initial fields
         self.add_advance_field()
         self.add_other_site_field()
         self.on_percentage_change(None)
     
     def _create_receipt_displays(self, parent):
         """Create receipt display area with dual box layout (full receipt and model screenshot)."""
-        # Create a container for the receipt displays
         receipt_container = ttk.Frame(parent)
         receipt_container.grid(row=1, column=1, columnspan=2, sticky=(tk.N, tk.W, tk.E, tk.S))
         
@@ -189,7 +165,6 @@ class MainTabUI:
         except Exception:
             pass
         
-        # Full receipt display
         full_receipt_frame = ttk.LabelFrame(receipt_container, text="Full Receipt", padding="10")
         full_receipt_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
         
@@ -206,7 +181,6 @@ class MainTabUI:
         scrollbar.grid(row=0, column=1, sticky=(tk.N, tk.S))
         self.receipt_text['yscrollcommand'] = scrollbar.set
         
-        # Model screenshot display (for payment confirmation)
         model_frame = ttk.LabelFrame(receipt_container, text="Payment Confirmation", padding="10")
         model_frame.grid(row=0, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(5, 0))
         
@@ -230,7 +204,6 @@ class MainTabUI:
             percentage = float(perc_str.strip('%')) / 100
             
             if percentage > 0.60:
-                # Disable fines for home workers
                 self.fines_count.config(state='disabled')
                 self.custom_fine_cop.config(state='disabled')
                 self.fines_count.delete(0, tk.END)
@@ -238,7 +211,6 @@ class MainTabUI:
                 self.custom_fine_cop.delete(0, tk.END)
                 self.fines_label.config(text="Fines (Disabled - Home Worker)")
             else:
-                # Enable fines for studio workers
                 self.fines_count.config(state='normal')
                 self.custom_fine_cop.config(state='normal')
                 self.fines_label.config(text="Fines (Studio only):")
@@ -258,7 +230,7 @@ class MainTabUI:
         amount_entry.insert(0, "0")
         amount_entry.pack(side=tk.LEFT, padx=2)
         
-        remove_btn = ttk.Button(frame, text="X", width=3, 
+        remove_btn = ttk.Button(frame, text="X", width=3,
                                command=lambda: self.remove_advance_field(frame))
         remove_btn.pack(side=tk.LEFT, padx=2)
         
@@ -272,7 +244,6 @@ class MainTabUI:
                 frame.destroy()
                 break
         
-        # Keep at least one entry
         if len(self.advances_entries) == 0:
             self.add_advance_field()
     
@@ -304,7 +275,6 @@ class MainTabUI:
                 frame.destroy()
                 break
         
-        # Keep at least one entry
         if len(self.other_sites_entries) == 0:
             self.add_other_site_field()
     
@@ -317,31 +287,25 @@ class MainTabUI:
         self.previous_fortnight_usd.delete(0, tk.END)
         self.previous_fortnight_usd.insert(0, "0")
         
-        # Clear other sites
         if hasattr(self, 'other_sites_entries'):
             for type_cb, amount_e, frame in self.other_sites_entries:
                 frame.destroy()
             self.other_sites_entries = []
             self.add_other_site_field()
         
-        # Clear advances
         for date_e, amount_e, frame in self.advances_entries:
             frame.destroy()
         self.advances_entries = []
         self.add_advance_field()
         
-        # Clear fines
         self.fines_count.delete(0, tk.END)
         self.fines_count.insert(0, "0")
         self.custom_fine_cop.delete(0, tk.END)
         
-        # Clear receipts
         self.receipt_text.delete(1.0, tk.END)
         self.model_text.delete(1.0, tk.END)
         
-        # Reset stored data
         self.window_setup.current_input_data = None
         self.window_setup.current_result_data = None
         
-        # Reset fines state
         self.on_percentage_change(None)

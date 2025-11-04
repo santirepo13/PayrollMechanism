@@ -1,13 +1,9 @@
-"""
-Main GUI window for BroadSpec Payment Calculator.
-"""
 import tkinter as tk
 from tkinter import ttk
 from typing import Dict, Any, Optional
 
 from broadspec.utils.pdf_preview import PDFPreviewer
 
-# Import refactored components
 from broadspec.ui.components.window_setup import WindowSetup
 from broadspec.ui.components.main_tab_ui import MainTabUI
 from broadspec.ui.components.admin_tab_ui import AdminTabUI
@@ -27,22 +23,16 @@ class BroadSpecGUI:
         self.config = config
         self.controller = controller
         
-        # Initialize window setup first
         self.window_setup = WindowSetup(root, config)
         
-        # Initialize UI components
         self.main_tab_ui = MainTabUI(self.window_setup.main_tab, self.window_setup)
         self.admin_tab_ui = AdminTabUI(self.window_setup.admin_tab, self.window_setup, controller)
         
-        # Initialize functionality components
         self.calculation_handler = CalculationHandler(self.main_tab_ui, self.window_setup, controller)
         self.pdf_saver = PDFSaver(self.main_tab_ui, self.window_setup, controller)
         self.model_image_saver = ModelImageSaver(self.main_tab_ui, self.window_setup, controller)
         self.resolution_manager = ResolutionManager(self.window_setup, self.admin_tab_ui)
         self.pdf_preview_handler = PDFPreviewHandler(self.window_setup, self.admin_tab_ui, controller)
-    
-    # Direct access to component methods - no delegation needed
-    # Components are directly accessible through their instances
     
     @property
     def main_tab(self):

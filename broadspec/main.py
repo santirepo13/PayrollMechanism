@@ -1,9 +1,5 @@
-"""
-Main entry point for BroadSpec Payment Calculator.
-"""
 import os
 import sys
-# Ensure repository root is on sys.path so package imports work when running this file directly.
 _repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if _repo_root not in sys.path:
     sys.path.insert(0, _repo_root)
@@ -37,7 +33,6 @@ class ApplicationController:
         self.gui = None
         self.root = None
         
-        # Initialize application
         self._load_configuration()
         self._initialize_components()
     
@@ -62,12 +57,10 @@ class ApplicationController:
     def _initialize_components(self):
         """Initialize application components."""
         try:
-            # Initialize core components
             self.calculator = PaymentCalculator(self.config)
             self.receipt_generator = ReceiptGenerator(self.config)
             self.file_operations = FileOperations(self.config)
             
-            # Initialize vault repository (may fail if cryptography not available)
             try:
                 self.vault_repository = VaultRepository(self.config)
                 self.vault_repository.load_index()
@@ -95,31 +88,16 @@ class ApplicationController:
             sys.exit(1)
     
     def calculate_payment(self, form_data: dict) -> tuple[dict, dict]:
-        """
-        Calculate payment based on form data.
-        
-        Args:
-            form_data: Dictionary containing form input values
-            
-        Returns:
-            Tuple of (input_data, calculation_result)
-            
-        Raises:
-            BroadSpecError: If calculation fails
-        """
+        """Calculate payment based on form data."""
         try:
-            # Convert form data to PaymentData model
             payment_data = self._form_data_to_payment_data(form_data)
             
-            # Validate input data
             validation_errors = self.calculator.validate_data(payment_data)
             if validation_errors:
                 raise ValidationError("Validation failed: " + "; ".join(validation_errors))
             
-            # Perform calculation
             result = self.calculator.calculate(payment_data)
             
-            # Convert to dictionaries for GUI
             input_dict = self._payment_data_to_dict(payment_data)
             result_dict = self._calculation_result_to_dict(result)
             
@@ -131,30 +109,15 @@ class ApplicationController:
             raise CalculationError(f"Payment calculation failed: {str(e)}")
     
     def save_receipt(self, input_data: dict, result_data: dict) -> str:
-        """
-        Save receipt as PDF and optionally add to vault.
-        
-        Args:
-            input_data: Input data dictionary
-            result_data: Calculation result dictionary
-            
-        Returns:
-            Path to the saved PDF file
-            
-        Raises:
-            BroadSpecError: If save operation fails
-        """
+        """Save receipt as PDF and optionally add to vault."""
         try:
-            # Convert back to model objects
             payment_data = self._dict_to_payment_data(input_data)
             result = self._dict_to_calculation_result(result_data)
             
-            # Generate PDF
             pdf_path = self.receipt_generator.generate_pdf(input_data, result)
             
-            # Add to vault if available and not a test entry
-            if (self.vault_repository and 
-                not (input_data.get('model_id') == "000" and 
+            if (self.vault_repository and
+                not (input_data.get('model_id') == "000" and
                      input_data.get('model_name', '').lower() == "test")):
                 
                 try:
@@ -166,7 +129,6 @@ class ApplicationController:
                     }
                     self.vault_repository.add_file(pdf_path, metadata)
                 except Exception as e:
-                    # Don't fail the save operation if vault add fails
                     print(f"Warning: Failed to add to vault: {str(e)}")
             
             return pdf_path
@@ -177,23 +139,11 @@ class ApplicationController:
             raise ReceiptGenerationError(f"Failed to save receipt: {str(e)}")
     
     def generate_receipt_pdf(self, input_data: dict, result_data: dict, pdf_path: str):
-        """
-        Generate PDF receipt to specified path.
-        
-        Args:
-            input_data: Input data dictionary
-            result_data: Calculation result dictionary
-            pdf_path: Path where to save the PDF
-            
-        Raises:
-            BroadSpecError: If PDF generation fails
-        """
+        """Generate PDF receipt to specified path."""
         try:
-            # Convert back to model objects
             payment_data = self._dict_to_payment_data(input_data)
             result = self._dict_to_calculation_result(result_data)
             
-            # Generate PDF to specified path
             self.receipt_generator.generate_pdf_to_path(payment_data, result, pdf_path)
             
         except Exception as e:
@@ -213,34 +163,19 @@ class ApplicationController:
             return []
     
     def export_from_vault(self, vault_filename: str, export_path: str = None) -> str:
-        """
-        Export a file from the vault.
-        
-        Args:
-            vault_filename: Filename in vault
-            export_path: Optional export path
-            
-        Returns:
-            Path to the exported file
-            
-        Raises:
-            BroadSpecError: If export fails
-        """
+        """Export a file from the vault."""
         if not self.vault_repository:
             raise VaultError("Vault not available")
         
         try:
-            # Retrieve file from vault
             file_bytes = self.vault_repository.retrieve_file(vault_filename)
             
-            # Determine export path
             if not export_path:
                 export_path = self.file_operations.get_unique_filepath(
                     self.file_operations.ensure_receipts_directory(),
                     vault_filename
                 )
             
-            # Save file
             self.file_operations.save_file(export_path, file_bytes)
             
             return export_path
@@ -251,18 +186,7 @@ class ApplicationController:
             raise VaultError(f"Failed to export from vault: {str(e)}")
     
     def delete_from_vault(self, vault_filenames: list[str]) -> int:
-        """
-        Delete files from the vault.
-        
-        Args:
-            vault_filenames: List of filenames to delete
-            
-        Returns:
-            Number of files deleted
-            
-        Raises:
-            BroadSpecError: If deletion fails
-        """
+        """Delete files from the vault."""
         if not self.vault_repository:
             raise VaultError("Vault not available")
         
@@ -274,15 +198,7 @@ class ApplicationController:
             raise VaultError(f"Failed to delete from vault: {str(e)}")
     
     def import_to_vault(self, file_paths: list[str]) -> tuple[int, int]:
-        """
-        Import files to the vault.
-        
-        Args:
-            file_paths: List of file paths to import
-            
-        Returns:
-            Tuple of (success_count, failure_count)
-        """
+        """Import files to the vault."""
         if not self.vault_repository:
             raise VaultError("Vault not available")
         
@@ -291,7 +207,6 @@ class ApplicationController:
         
         for file_path in file_paths:
             try:
-                # Extract basic metadata from filename
                 filename = os.path.basename(file_path)
                 metadata = {
                     'model_id': '',
@@ -324,11 +239,8 @@ class ApplicationController:
         except Exception:
             return {'count': 0, 'size': 0}
     
-    # Helper methods for data conversion
-    
     def _form_data_to_payment_data(self, form_data: dict) -> PaymentData:
         """Convert form data to PaymentData model."""
-        # Convert other sites
         other_sites = []
         for site in form_data.get('other_sites', []):
             other_sites.append(OtherSite(
@@ -336,7 +248,6 @@ class ApplicationController:
                 amount=site.get('amount', 0)
             ))
         
-        # Convert advances
         advances = []
         for advance in form_data.get('advances', []):
             advances.append(Advance(
@@ -448,14 +359,11 @@ class ApplicationController:
 def main():
     """Main entry point."""
     try:
-        # Create application controller
         app = ApplicationController()
         
-        # Create and initialize GUI
         root = tk.Tk()
         app.initialize_gui(root)
         
-        # Start the GUI event loop
         root.mainloop()
         
     except Exception as e:

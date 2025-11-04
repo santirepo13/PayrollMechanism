@@ -13,9 +13,7 @@ def sanitize_filename(name: str) -> str:
     """Sanitize filename by removing characters forbidden on Windows while preserving Unicode accents."""
     if not name:
         return "unnamed"
-    # Replace forbidden characters <>:"/\|?* and control characters with underscore
     sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1F]', '_', name)
-    # Remove trailing spaces and dots (not allowed on Windows)
     sanitized = sanitized.rstrip(' .')
     return sanitized
 
@@ -33,17 +31,12 @@ def human_readable_size(num_bytes: int) -> str:
 
 
 def parse_filename_metadata(filename: str) -> Dict[str, str]:
-    """Extract model_id, model_name, tokens, date from common filename patterns.
-
-    Handles filenames produced by the app as well as imported/legacy names.
-    Returns empty strings for missing fields.
-    """
+    """Extract model_id, model_name, tokens, date from common filename patterns."""
     try:
         if not filename:
             return {"model_id": "", "model_name": "", "tokens": "", "date": ""}
         base = os.path.basename(filename)
         base = base.rsplit(".pdf", 1)[0]
-        # detect ISO date at end (YYYY-MM-DD)
         date = ""
         m = re.search(r'(\d{4}-\d{2}-\d{2})$', base)
         if m:
@@ -51,12 +44,10 @@ def parse_filename_metadata(filename: str) -> Dict[str, str]:
             base_wo_date = base[:m.start()].rstrip(' -')
         else:
             base_wo_date = base
-        # split parts, preserving parts that may contain " - " inside a name by trimming empties
         parts = [p.strip() for p in base_wo_date.split(" - ") if p.strip() != ""]
         model_id = parts[0] if len(parts) >= 1 else ""
         tokens = ""
         model_name = ""
-        # scan from right for a token-like segment (e.g. '5000 TKS' or just '2609')
         token_index = None
         for i in range(len(parts) - 1, 0, -1):
             if re.search(r'\b\d[\d,\.]*\s*(TKS)?\b', parts[i], re.IGNORECASE):
@@ -84,7 +75,7 @@ def format_currency(amount: float, currency: str = "COP") -> str:
     """Format currency amount with appropriate separators."""
     if currency.upper() == "USD":
         return f"${amount:,.2f} USD"
-    else:  # COP
+    else:
         return f"{amount:,.0f} COP"
 
 
@@ -105,7 +96,6 @@ def format_full_receipt(result: 'CalculationResult', data: 'PaymentData') -> str
     """Generate full receipt text."""
     equals_line = "=" * 50
     
-    # Generate other sites display
     other_sites_lines = []
     for i, site in enumerate(data.other_sites, start=2):
         if site.site_type.upper() == 'USD':
@@ -116,7 +106,6 @@ def format_full_receipt(result: 'CalculationResult', data: 'PaymentData') -> str
     
     other_sites_display = "\n".join(other_sites_lines) if other_sites_lines else "    None"
     
-    # Generate advances display
     advances_lines = []
     for advance in data.advances:
         advances_lines.append(f"    {advance.date}: {format_currency_cop(advance.amount)}")
@@ -173,7 +162,6 @@ def format_simple_receipt(result: 'CalculationResult', data: 'PaymentData') -> s
     """Generate simplified receipt text."""
     equals_line = "=" * 40
     
-    # Generate other sites display for simple receipt
     other_sites_lines = []
     for i, site in enumerate(data.other_sites, start=2):
         if site.site_type.upper() == 'USD':
@@ -183,13 +171,11 @@ def format_simple_receipt(result: 'CalculationResult', data: 'PaymentData') -> s
     
     other_sites_display = "\n".join(other_sites_lines) if other_sites_lines else "  None"
     
-    # Generate advances display for simple receipt
     advances_lines = []
     for advance in data.advances:
         advances_lines.append(f"  {advance.date}: {format_currency_cop(advance.amount, show_decimals=False)}")
     advances_display = "\n".join(advances_lines) if advances_lines else "  None"
     
-    # Include fines section only if applicable
     fines_section = ""
     if result.show_fines:
         fines_section = f"Fines: {format_currency_cop(result.fines_total, show_decimals=False)}" + "\n\n"
@@ -202,7 +188,7 @@ def format_simple_receipt(result: 'CalculationResult', data: 'PaymentData') -> s
       Payment Summary
    
    
-   
+
 {equals_line}
  
 Date: {result.date}

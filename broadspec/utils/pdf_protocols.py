@@ -8,7 +8,6 @@ from broadspec.core.models import CalculationResult
 
 def generate_filename(data: Dict[str, Any], result: Optional[CalculationResult] = None) -> str:
     """Generate filename for PDF receipts following project conventions."""
-    # Prefer result date when provided (keeps tests deterministic); otherwise use now
     date_str = result.date if (result and getattr(result, "date", None)) else datetime.now().strftime("%Y-%m-%d")
     model_id = sanitize_filename(str(data.get('model_id', '')).strip())
     model_name = sanitize_filename(str(data.get('model_name', '')).strip())
@@ -32,10 +31,7 @@ def sanitize_filename(name: str) -> str:
     if not name:
         return "unnamed"
 
-    # Replace forbidden characters with underscore
     sanitized = re.sub(r'[<>:"/\\|?*\x00-\x1F]', '_', name)
-    # Remove trailing spaces and dots
     sanitized = sanitized.strip(' .')
-    # Collapse multiple whitespace into single space
     sanitized = re.sub(r'\s+', ' ', sanitized)
     return sanitized

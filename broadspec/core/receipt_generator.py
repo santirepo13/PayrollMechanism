@@ -1,6 +1,3 @@
-"""
-PDF receipt generation for BroadSpec Payment Calculator.
-"""
 import os
 from typing import Dict, Any
 from reportlab.pdfgen import canvas
@@ -21,30 +18,21 @@ class ReceiptGenerator:
         self.receipts_path = self.config.get('storage', {}).get('receipts_path', 'Receipts')
     
     def generate_pdf(self, data: Dict[str, Any], result: CalculationResult) -> str:
-        """
-        Generate PDF receipt and return the file path.
-        
-        """
+        """Generate PDF receipt and return file path."""
         try:
-            # Ensure receipts directory exists
             os.makedirs(self.receipts_path, exist_ok=True)
             
-            # Generate filename
             filename = generate_filename(data, result)
             filepath = os.path.join(self.receipts_path, filename)
             
-            # Create PDF
             c = canvas.Canvas(filepath, pagesize=letter)
             width, height = letter
             
-            # Add title
             c.setFont("Courier-Bold", 16)
             c.drawString(50, height - 50, "BROADSPEC PAYMENT RECEIPTS")
             
-            # Add full receipt
             self._add_full_receipt(c, data, result, width, height)
             
-            # New page for simple receipt
             c.showPage()
             self._add_simple_receipt(c, data, result, width, height)
             
@@ -55,13 +43,12 @@ class ReceiptGenerator:
         except Exception as e:
             raise ReceiptGenerationError(f"Failed to generate PDF: {str(e)}")
     
-    def _add_full_receipt(self, c: canvas.Canvas, data: Dict[str, Any], 
+    def _add_full_receipt(self, c: canvas.Canvas, data: Dict[str, Any],
                          result: CalculationResult, width: float, height: float):
         """Add full receipt to PDF."""
         c.setFont("Courier", 9)
         y_position = height - 100
         
-        # Generate receipt content
         receipt_lines = self._generate_full_receipt_lines(data, result)
         
         for line in receipt_lines:
@@ -71,8 +58,8 @@ class ReceiptGenerator:
             c.drawString(50, y_position, line[:80])
             y_position -= 12
     
-    def _add_simple_receipt(self, c: canvas.Canvas, data: Dict[str, Any], 
-                          result: CalculationResult, width: float, height: float):
+    def _add_simple_receipt(self, c: canvas.Canvas, data: Dict[str, Any],
+                           result: CalculationResult, width: float, height: float):
         """Add simple receipt to PDF."""
         c.setFont("Courier-Bold", 14)
         c.drawString(50, height - 50, "MODEL RECEIPT")
@@ -80,7 +67,6 @@ class ReceiptGenerator:
         c.setFont("Courier", 10)
         y_position = height - 100
         
-        # Generate simple receipt content
         receipt_lines = self._generate_simple_receipt_lines(data, result)
         
         for line in receipt_lines:
@@ -89,18 +75,15 @@ class ReceiptGenerator:
             c.drawString(50, y_position, line[:80])
             y_position -= 14
     
-    def _generate_full_receipt_lines(self, data: Dict[str, Any], 
+    def _generate_full_receipt_lines(self, data: Dict[str, Any],
                                    result: CalculationResult) -> list[str]:
         """Generate lines for full receipt."""
         equals_line = "=" * 50
         
-        # Format other sites display
         other_sites_display = self._format_other_sites_full(data)
         
-        # Format advances display
         advances_display = self._format_advances_full(data)
         
-        # Format fines display
         fines_display = result.fines_display if result.show_fines else "Fines: Disabled (Home Worker)"
         
         lines = [
@@ -162,13 +145,10 @@ class ReceiptGenerator:
         """Generate lines for simple receipt."""
         equals_line = "=" * 40
         
-        # Format other sites display
         other_sites_display = self._format_other_sites_simple(data)
         
-        # Format advances display
         advances_display = self._format_advances_simple(data)
         
-        # Format fines section
         fines_section = ""
         if result.show_fines:
             fines_section = f"Fines: {format_currency_cop(result.fines_total)} COP\n\n"
@@ -252,35 +232,20 @@ class ReceiptGenerator:
         return lines
     
     def generate_pdf_to_path(self, data: Dict[str, Any], result: CalculationResult, pdf_path: str):
-        """
-        Generate PDF receipt to a specified path.
-        
-        Args:
-            data: Input data dictionary
-            result: Calculation result
-            pdf_path: Specific path where to save the PDF
-            
-        Raises:
-            ReceiptGenerationError: If PDF generation fails
-        """
+        """Generate PDF receipt to a specified path."""
         try:
-            # Ensure directory exists
             directory = os.path.dirname(pdf_path)
             if directory:
                 os.makedirs(directory, exist_ok=True)
              
-            # Create PDF at specified path
             c = canvas.Canvas(pdf_path, pagesize=letter)
             width, height = letter
             
-            # Add title
             c.setFont("Courier-Bold", 16)
             c.drawString(50, height - 50, "BROADSPEC PAYMENT RECEIPTS")
             
-            # Add full receipt
             self._add_full_receipt(c, data, result, width, height)
             
-            # New page for simple receipt
             c.showPage()
             self._add_simple_receipt(c, data, result, width, height)
             
@@ -299,7 +264,7 @@ class ReceiptGenerator:
         for advance in advances:
             lines.append(f"    {advance.get('date', '')}: {format_currency_cop(advance.get('amount', 0))} COP")
         
-        lines.append("")  # Empty line after advances
+        lines.append("")
         return lines
     
     def _format_advances_simple(self, data: Dict[str, Any]) -> list[str]:

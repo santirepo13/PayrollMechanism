@@ -1,6 +1,3 @@
-"""
-PDF saving component for BroadSpec Payment Calculator.
-"""
 import os
 import tkinter as tk
 from tkinter import messagebox
@@ -19,28 +16,23 @@ class PDFSaver:
         self.window_setup = window_setup
         self.controller = controller
         
-        # Set the save PDF button command directly
         self.main_tab_ui.save_pdf_btn.config(command=self.save_pdf)
     
     def save_pdf(self):
-        """Save the receipt as a PDF file."""
+        """Save receipt as a PDF file."""
         if not self.window_setup.current_input_data or not self.window_setup.current_result_data:
             messagebox.showwarning("No Data", "Please calculate first before saving")
             return
 
         try:
-            # Ensure Receipts directory exists and build canonical PDF filename
             receipts_dir = os.path.join(os.getcwd(), "Receipts")
             os.makedirs(receipts_dir, exist_ok=True)
 
-            # Build a lightweight result object if needed for filename generation
             result_obj = None
             try:
-                # If controller provides a helper, use it to build a CalculationResult object
                 if hasattr(self.controller, '_dict_to_calculation_result'):
                     result_obj = self.controller._dict_to_calculation_result(self.window_setup.current_result_data)
                 else:
-                    # Fallback object with expected attributes
                     class _R:
                         pass
                     result_obj = _R()
@@ -50,11 +42,9 @@ class PDFSaver:
             except Exception:
                 result_obj = None
 
-            # Generate canonical filename using pdf_protocols
             try:
                 pdf_name = generate_filename(self.window_setup.current_input_data, result_obj)
             except Exception:
-                # Fallback naming
                 model_id = (self.window_setup.current_input_data.get('model_id') or "").strip()
                 model_name = (self.window_setup.current_input_data.get('model_name') or "").strip()
                 date_str = (self.window_setup.current_result_data.get('date') or datetime.now().strftime("%Y-%m-%d"))
@@ -62,8 +52,6 @@ class PDFSaver:
 
             pdf_path = os.path.join(receipts_dir, pdf_name)
 
-            # Prefer controller.save_receipt which returns the actual path written by the controller.
-            # This avoids trying to move/duplicate files and prevents temporary files from accumulating.
             pdf_path_to_import = None
             if hasattr(self.controller, 'save_receipt'):
                 saved_path = self.controller.save_receipt(self.window_setup.current_input_data, self.window_setup.current_result_data)
@@ -71,7 +59,6 @@ class PDFSaver:
                     raise Exception("Controller.save_receipt did not return a path")
                 pdf_path_to_import = os.path.abspath(saved_path)
             elif hasattr(self.controller, 'generate_receipt_pdf'):
-                # Fallback: ask controller to generate directly to the canonical path
                 self.controller.generate_receipt_pdf(self.window_setup.current_input_data, self.window_setup.current_result_data, pdf_path)
                 pdf_path_to_import = os.path.abspath(pdf_path)
             else:
@@ -80,24 +67,17 @@ class PDFSaver:
             if not hasattr(self.controller, 'import_to_vault'):
                 raise Exception('Vault import API is not available on controller')
 
-            # Import the PDF to the vault only when the controller did not already handle vault import.
-            # If we used controller.save_receipt, that method in ApplicationController already
-            # adds the generated PDF to the vault, so calling import_to_vault again would create duplicates.
             if hasattr(self.controller, 'save_receipt'):
-                # The controller saved the PDF and typically handled vault import itself.
                 try:
                     messagebox.showinfo('Saved', f'PDF saved by controller: {pdf_path_to_import}')
-                    # Attempt to refresh vault list in case controller already imported
                     try:
                         if hasattr(self.main_tab_ui, 'refresh_vault'):
                             self.main_tab_ui.refresh_vault()
                     except Exception:
                         pass
                 except Exception:
-                    # Non-fatal UI failure
                     pass
             else:
-                # Controller didn't run save_receipt; import the generated file ourselves
                 try:
                     success_count, failure_count = self.controller.import_to_vault([pdf_path_to_import])
 
@@ -109,7 +89,7 @@ class PDFSaver:
                         except Exception:
                             pass
                     else:
-                        messagebox.showwarning('Vault Import', f'No files were imported to the vault. Failures: {failure_count}')
+                        messagebox.showwarning('Vault Import', f'No files were imported to vault. Failures: {failure_count}')
                 except Exception as e:
                     messagebox.showerror("Vault Import Error", f"Failed to import to vault: {str(e)}")
 

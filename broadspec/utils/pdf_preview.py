@@ -13,7 +13,6 @@ class PDFPreviewer:
     """Handles PDF preview functionality."""
     
     def __init__(self, config: dict = None):
-        """Initialize PDF previewer with configuration."""
         self.config = config or {}
         self.preview_enabled = self.config.get('ui', {}).get('pdf_preview_enabled', True)
         self.current_pdf_path = None
@@ -22,7 +21,6 @@ class PDFPreviewer:
         self.zoom_level = 1.0
         
     def is_enabled(self) -> bool:
-        """Check if PDF preview is enabled."""
         return self.preview_enabled
     
     def open_pdf(self, pdf_path: str) -> bool:

@@ -1,6 +1,3 @@
-"""
-Data models for BroadSpec Payment Calculator.
-"""
 from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Optional
@@ -20,14 +17,14 @@ class Advance:
 @dataclass
 class OtherSite:
     """Represents payment from other sites."""
-    site_type: str  # 'USD' or 'TKS'
+    site_type: str
     amount: float
     
     def get_usd_equivalent(self) -> float:
         """Convert to USD equivalent."""
         if self.site_type.upper() == 'USD':
             return self.amount
-        else:  # TKS
+        else:
             return self.amount / 20.0
 
 
@@ -78,7 +75,7 @@ class CalculationResult:
 
 @dataclass
 class VaultEntry:
-    """Represents an entry in the encrypted vault."""
+    """Represents an entry in encrypted vault."""
     vault_filename: str
     orig_filename: str
     model_id: str

@@ -1,6 +1,3 @@
-"""
-Admin tab UI components for BroadSpec Payment Calculator.
-"""
 import os
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -15,17 +12,14 @@ class AdminTabUI:
         self.window_setup = window_setup
         self.controller = controller
         
-        # Create the admin tab
         self._create_admin_tab()
     
     def _create_admin_tab(self):
         """Create the admin tab for vault management."""
-        # Create main container for admin tab
         admin_container = ttk.Frame(self.parent_tab, padding="10")
         admin_container.pack(fill=tk.BOTH, expand=True)
         
         if not self.controller.vault_repository:
-            # Show message if vault is not available
             no_vault_label = ttk.Label(
                 admin_container,
                 text="Vault features are not available (cryptography package missing)",
@@ -34,11 +28,9 @@ class AdminTabUI:
             no_vault_label.pack(pady=50)
             return
         
-        # Create vault management UI
         vault_frame = ttk.LabelFrame(admin_container, text="Encrypted Vault (Admin)", padding="10")
         vault_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
         
-        # Listbox for vault entries
         self.vault_listbox = tk.Listbox(vault_frame, width=100, height=20, selectmode=tk.EXTENDED)
         self.vault_listbox.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.vault_listbox.bind('<Double-Button-1>', self.on_vault_double_click)
@@ -47,7 +39,6 @@ class AdminTabUI:
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.vault_listbox['yscrollcommand'] = scrollbar.set
         
-        # Buttons
         btn_frame = ttk.Frame(admin_container)
         btn_frame.pack(fill=tk.X, pady=(0, 10))
         
@@ -63,16 +54,13 @@ class AdminTabUI:
         refresh_btn = ttk.Button(btn_frame, text="Refresh", command=self.refresh_vault)
         refresh_btn.pack(side=tk.LEFT, padx=5)
         
-        # Resolution toggle button
         self.resolution_var = tk.StringVar(value="1920x1080")
         resolution_btn = ttk.Button(btn_frame, text="Toggle Resolution", command=self.toggle_resolution)
         resolution_btn.pack(side=tk.LEFT, padx=5)
         
-        # Current resolution label
         self.resolution_label = ttk.Label(btn_frame, textvariable=self.resolution_var)
         self.resolution_label.pack(side=tk.LEFT, padx=5)
         
-        # Stats
         stats_frame = ttk.Frame(admin_container)
         stats_frame.pack(fill=tk.X, pady=(0, 10))
         
@@ -82,16 +70,13 @@ class AdminTabUI:
         self.vault_size_label = ttk.Label(stats_frame, text="Vault size: 0 B")
         self.vault_size_label.pack(side=tk.LEFT)
         
-        # Initial load
         self.refresh_vault()
         
-        # Add PDF preview section to admin tab
         self._create_pdf_preview_in_admin()
     
     def _create_pdf_preview_in_admin(self):
         """Create PDF preview section in admin tab."""
         if not self.window_setup.pdf_previewer.is_enabled():
-            # Show message if PDF preview is disabled
             no_preview_label = ttk.Label(
                 self.parent_tab,
                 text="PDF Preview is disabled in configuration",
@@ -100,18 +85,15 @@ class AdminTabUI:
             no_preview_label.pack(pady=10)
             return
         
-        # Create PDF preview frame in admin tab
         pdf_preview_frame = ttk.LabelFrame(self.parent_tab, text="PDF Preview", padding="10")
         pdf_preview_frame.pack(fill=tk.BOTH, expand=True)
         
-        # Configure grid weights for pdf_preview_frame
         try:
             pdf_preview_frame.rowconfigure(1, weight=1)
             pdf_preview_frame.columnconfigure(0, weight=1)
         except Exception:
             pass
         
-        # Create scrollable canvas for PDF display
         canvas_frame = ttk.Frame(pdf_preview_frame)
         canvas_frame.pack(fill=tk.BOTH, expand=True)
         
@@ -131,7 +113,6 @@ class AdminTabUI:
         admin_pdf_v_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         admin_pdf_h_scrollbar.pack(side=tk.BOTTOM, fill=tk.X)
         
-        # Navigation controls
         nav_frame = ttk.Frame(pdf_preview_frame)
         nav_frame.pack(fill=tk.X, pady=(10, 0))
         
@@ -150,7 +131,6 @@ class AdminTabUI:
         admin_zoom_combo.bind('<<ComboboxSelected>>', self.admin_on_zoom_change)
         admin_zoom_combo.pack(side=tk.LEFT)
         
-        # Store reference to current image to prevent garbage collection
         self.admin_current_pdf_image = None
     
     def export_selected(self):
@@ -165,7 +145,6 @@ class AdminTabUI:
         
         try:
             if len(selection) == 1:
-                # Single file - ask for location
                 filepath = tk.filedialog.asksaveasfilename(
                     defaultextension=".pdf",
                     filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
@@ -173,7 +152,6 @@ class AdminTabUI:
                 if not filepath:
                     return
             else:
-                # Multiple files - ask for directory
                 directory = tk.filedialog.askdirectory(title="Select export directory")
                 if not directory:
                     return
@@ -223,8 +201,6 @@ class AdminTabUI:
             
             deleted_count = self.controller.delete_from_vault(vault_filenames)
             messagebox.showinfo("Delete", f"Deleted {deleted_count} file(s)")
-            # AdminTabUI handles its own refresh
-            # self.refresh_vault()
             
         except Exception as e:
             messagebox.showerror("Delete Error", f"Failed to delete: {str(e)}")
@@ -273,7 +249,6 @@ class AdminTabUI:
                     display = f"{i}. {filename}"
                     self.vault_listbox.insert(tk.END, display)
             
-            # Update stats
             stats = self.controller.get_vault_stats()
             self.vault_count_label.config(text=f"Entries: {stats['count']}")
             self.vault_size_label.config(text=f"Vault size: {self._format_size(stats['size'])}")
@@ -292,15 +267,12 @@ class AdminTabUI:
             self.resolution_var.set("1920x1080")
             new_width, new_height = 1920, 1080
         
-        # Adjust height to account for taskbar
         adjusted_height = new_height - self.window_setup.taskbar_height
         
-        # Update the UI to fit the new resolution
         self._update_ui_for_resolution(new_width, adjusted_height)
     
     def _update_ui_for_resolution(self, width, height):
         """Update UI elements to fit the specified resolution."""
-        # This method will be implemented in the resolution management component
         pass
     
     def _format_size(self, size_bytes: int) -> str:
@@ -346,30 +318,23 @@ class AdminTabUI:
         if not self.window_setup.pdf_previewer.current_doc:
             return
         
-        # Update page counter
-        current_page = self.window_setup.pdf_previewer.get_current_page() + 1  # Convert to 1-indexed
+        current_page = self.window_setup.pdf_previewer.get_current_page() + 1
         total_pages = self.window_setup.pdf_previewer.get_page_count()
         self.admin_page_var.set(f"{current_page} / {total_pages}")
         
-        # Get current zoom level
         zoom_str = self.admin_zoom_var.get()
         zoom = float(zoom_str.rstrip('%')) / 100.0
         self.window_setup.pdf_previewer.set_zoom(zoom)
         
-        # Get page image
         tk_image = self.window_setup.pdf_previewer.get_page_tk_image()
         if tk_image:
-            # Clear canvas
             self.admin_pdf_canvas.delete("all")
             
-            # Store reference to prevent garbage collection
             self.admin_current_pdf_image = tk_image
             
-            # Calculate position to center image
             canvas_width = self.admin_pdf_canvas.winfo_width()
             canvas_height = self.admin_pdf_canvas.winfo_height()
             
-            # If canvas hasn't been rendered yet, use default size
             if canvas_width <= 1:
                 canvas_width = 600
             if canvas_height <= 1:
@@ -378,10 +343,8 @@ class AdminTabUI:
             img_width = tk_image.width()
             img_height = tk_image.height()
             
-            # Calculate scroll region
             self.admin_pdf_canvas.configure(scrollregion=(0, 0, img_width, img_height))
             
-            # Place image at top-left of canvas
             self.admin_pdf_canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
     
     def admin_prev_page(self):
@@ -423,7 +386,6 @@ class AdminTabUI:
         
         selected_index = selected_indices[0]
         
-        # Get vault entry data
         if selected_index >= len(self.vault_entries):
             return
             
@@ -435,23 +397,18 @@ class AdminTabUI:
             return
         
         try:
-            # Create temporary file for preview
             import tempfile
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                 temp_path = temp_file.name
             
-            # Retrieve file from vault
             file_bytes = self.controller.vault_repository.retrieve_file(vault_filename)
             
-            # Write to temporary file
             with open(temp_path, 'wb') as f:
                 f.write(file_bytes)
             
-            # Load PDF in admin tab
             self.admin_pdf_path_var = tk.StringVar(value=f"Vault: {vault_filename}")
             if self.window_setup.pdf_previewer.open_pdf(temp_path):
                 self.admin_update_pdf_display()
-                # Switch to admin tab
                 self.window_setup.notebook.select(self.parent_tab)
             else:
                 messagebox.showerror("Error", "Failed to load PDF for preview")

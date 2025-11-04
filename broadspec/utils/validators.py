@@ -56,7 +56,6 @@ def validate_percentage(value: str) -> Tuple[bool, str]:
         return False, "Percentage is required"
     
     try:
-        # Remove % sign if present
         clean_value = value.strip().rstrip('%')
         percentage = float(clean_value)
         
@@ -73,7 +72,6 @@ def validate_date(value: str) -> Tuple[bool, str]:
     if not value.strip():
         return False, "Date is required"
     
-    # Simple regex for YYYY-MM-DD format
     date_pattern = r'^\d{4}-\d{2}-\d{2}$'
     if not re.match(date_pattern, value):
         return False, "Date must be in YYYY-MM-DD format"
@@ -86,7 +84,6 @@ def validate_model_id(value: str) -> Tuple[bool, str]:
     if not value.strip():
         return False, "Model ID is required"
     
-    # Model ID should be alphanumeric with possible hyphens
     if not re.match(r'^[a-zA-Z0-9\-]+$', value.strip()):
         return False, "Model ID can only contain letters, numbers, and hyphens"
     
@@ -147,7 +144,6 @@ def validate_payment_data(payment_data):
     """Validate payment data and return list of errors."""
     errors = []
     
-    # Validate required fields
     if not payment_data.model_id:
         errors.append("Model ID is required")
     
@@ -163,17 +159,14 @@ def validate_payment_data(payment_data):
     if payment_data.percentage <= 0 or payment_data.percentage > 1:
         errors.append("Percentage must be between 0 and 100%")
     
-    # Validate other sites
     for i, site in enumerate(payment_data.other_sites):
         if site.amount < 0:
             errors.append(f"Other site {i+1} amount cannot be negative")
     
-    # Validate advances
     for i, advance in enumerate(payment_data.advances):
         if advance.amount < 0:
             errors.append(f"Advance {i+1} amount cannot be negative")
     
-    # Validate fines
     if payment_data.fines_count < 0:
         errors.append("Fines count cannot be negative")
     

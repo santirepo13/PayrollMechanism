@@ -1,8 +1,3 @@
-"""
-Custom exception classes for BroadSpec Payment Calculator.
-"""
-
-
 class BroadSpecError(Exception):
     """Base exception for application"""
     pass
@@ -40,14 +35,4 @@ class ConfigurationError(BroadSpecError):
 
 class StorageError(BroadSpecError):
     """Errors in file storage operations"""
-    pass
-
-
-class ReceiptGenerationError(BroadSpecError):
-    """Errors in PDF receipt generation"""
-    pass
-
-
-class ValidationError(BroadSpecError):
-    """Errors in data validation"""
     pass

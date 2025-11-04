@@ -1,6 +1,3 @@
-"""
-Payment calculation logic for BroadSpec Payment Calculator.
-"""
 from typing import List
 from .models import PaymentData, CalculationResult, OtherSite, Advance
 
@@ -19,37 +16,27 @@ class PaymentCalculator:
     
     def calculate(self, data: PaymentData) -> CalculationResult:
         """Perform payment calculation."""
-        # Calculate TRM values
         trm_broadspec_cop = data.trm_official_cop - self.trm_adjustment
         
-        # Calculate transfer cost
         transfer_cost_usd = self.transfer_cost + (self.transfer_cost * self.transfer_cost_tax)
         transfer_cost_cop = transfer_cost_usd * data.btk_trm_cop
         
-        # Calculate USD values
         usd_from_tokens = data.tokens / self.token_to_usd_rate
         percent = data.percentage
         if percent > 1:
             percent = percent / 100.0
         net_usd = usd_from_tokens * percent
 
-        # Calculate total USD for other sites
         other_sites_total_usd = sum(site.get_usd_equivalent() for site in data.other_sites) * percent
         
-        
-        # Calculate total USD before final calculation
         total_usd_precalc = net_usd + other_sites_total_usd + data.previous_fortnight_usd
         
-        # Calculate BroadSpec value in COP
         valor_broadspec_cop = (total_usd_precalc * trm_broadspec_cop) - transfer_cost_cop
         
-        # Calculate fines
         fines_total, fines_display, show_fines = self._calculate_fines(data)
         
-        # Calculate advances total
         advances_total = sum(advance.amount for advance in data.advances)
         
-        # Calculate final payment
         total_cop = valor_broadspec_cop - advances_total - fines_total
         total_usd = total_cop / trm_broadspec_cop
         
