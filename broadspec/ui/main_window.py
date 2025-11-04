@@ -7,6 +7,7 @@ from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 from typing import Dict, Any, Optional
 from PIL import Image, ImageTk, ImageDraw, ImageFont
+import tkinter.font as tkfont
 
 from broadspec.core.exceptions import BroadSpecError, CalculationError, VaultError
 from broadspec.utils.formatters import format_currency_cop, format_currency_usd
@@ -740,62 +741,118 @@ class BroadSpecGUI:
                 except Exception:
                     font = ImageFont.load_default()
 
-            # Measure text to determine image size (robust across Pillow versions)
+            # Render text to an image to match the on-screen Text widget as closely as possible.
             padding = 12
-            dummy_img = Image.new("RGB", (1, 1), "white")
-            draw = ImageDraw.Draw(dummy_img)
 
+            # Create a tiny dummy draw for fallback measuring
+            dummy_img = Image.new("RGB", (1, 1), "white")
+            draw_dummy = ImageDraw.Draw(dummy_img)
+
+            # Helper measurement function (uses Pillow methods when possible)
             def _measure_text(draw_obj, text, font_obj):
-                """Return (width, height) for the given text using available methods."""
-                # Prefer textbbox (newer Pillow), fall back to font.getsize or draw.textsize
                 try:
                     bbox = draw_obj.textbbox((0, 0), text, font=font_obj)
-                    w = bbox[2] - bbox[0]
-                    h = bbox[3] - bbox[1]
-                    return w, h
+                    return bbox[2] - bbox[0], bbox[3] - bbox[1]
                 except Exception:
                     pass
-
                 try:
                     return font_obj.getsize(text)
                 except Exception:
                     pass
-
                 try:
                     return draw_obj.textsize(text, font=font_obj)
                 except Exception:
-                    # Last resort: approximate
                     avg_char_w = font_size * 0.6
                     return int(len(text) * avg_char_w), font_size + 4
 
             lines_to_measure = text_to_render.split("\n")
-            max_w = 0
-            line_h = 0
-            measured = []
-            for ln in lines_to_measure:
-                w, h = _measure_text(draw, ln, font)
-                measured.append((w, h))
-                if w > max_w:
-                    max_w = w
-                if h > line_h:
-                    line_h = h
 
-            # Ensure a sensible minimum line height
-            if line_h <= 0:
+            # Try to mirror the widget's font and metrics
+            try:
+                tkf = tkfont.Font(font=self.model_text.cget("font"))
+                fam = tkf.cget("family")
+                tk_size = int(abs(int(tkf.cget("size")))) if tkf.cget("size") else font_size
+                try:
+                    line_h = tkf.metrics("linespace")
+                except Exception:
+                    line_h = tk_size + 4
+            except Exception:
+                fam = None
+                tk_size = font_size
                 line_h = font_size + 4
 
-            img_w = int(max_w + padding * 2)
+            # Try loading a matching TTF for the widget font family
+            font_pil = None
+            candidates = []
+            if fam:
+                fam_lower = fam.lower()
+                if "courier" in fam_lower or "mono" in fam_lower:
+                    candidates = ["Courier New.ttf", "DejaVuSansMono.ttf", "LiberationMono-Regular.ttf"]
+                else:
+                    candidates = [f"{fam}.ttf", "DejaVuSansMono.ttf", "Courier New.ttf"]
+            else:
+                candidates = ["DejaVuSansMono.ttf", "Courier New.ttf"]
+
+            for cand in candidates:
+                try:
+                    font_pil = ImageFont.truetype(cand, tk_size)
+                    break
+                except Exception:
+                    font_pil = None
+
+            # Fall back to previously-resolved PIL font object if no TTF found
+            if font_pil is None:
+                font_pil = font
+
+            # Determine image width: prefer widget pixel width so layout matches what's on screen
+            widget_w = self.model_text.winfo_width()
+            if widget_w and widget_w > 10:
+                img_w = max(100, widget_w)
+            else:
+                # Fallback: measure longest line width
+                max_w = 0
+                for ln in lines_to_measure:
+                    try:
+                        # textlength is available in newer Pillow; fall back to measure helper
+                        if hasattr(draw_dummy, "textlength"):
+                            w = draw_dummy.textlength(ln, font=font_pil)
+                        else:
+                            w = _measure_text(draw_dummy, ln, font_pil)[0]
+                    except Exception:
+                        w = _measure_text(draw_dummy, ln, font_pil)[0]
+                    if w > max_w:
+                        max_w = w
+                img_w = int(max_w + padding * 2)
+
+            # Height: use widget line spacing if available for closer visual match
+            # Calculate height from number of lines and line_h, with padding
             img_h = int(line_h * len(lines_to_measure) + padding * 2)
 
-            # Create final image and draw text
-            img = Image.new("RGB", (max(1, img_w), max(1, img_h)), "white")
+            # Create final image with the same background color as the Text widget.
+            # Tk may return platform/system color names (e.g. 'SystemWindow') which PIL
+            # does not understand. Convert to an RGB hex using winfo_rgb when possible.
+            try:
+                bg = self.model_text.cget("background") or "white"
+                try:
+                    r, g, b = self.model_text.winfo_rgb(bg)
+                    # winfo_rgb returns 0-65535 per channel; convert to 0-255
+                    hex_bg = '#{0:02x}{1:02x}{2:02x}'.format(r // 256, g // 256, b // 256)
+                except Exception:
+                    # If conversion fails, fall back to the raw value or white
+                    hex_bg = bg if isinstance(bg, str) else "white"
+            except Exception:
+                hex_bg = "white"
+
+            img = Image.new("RGB", (max(1, int(img_w)), max(1, int(img_h))), hex_bg)
             draw = ImageDraw.Draw(img)
+
+            # Left padding matches typical text widget inset
+            left_pad = padding
             y = padding
-            for idx, ln in enumerate(lines_to_measure):
-                draw.text((padding, y), ln, fill="black", font=font)
-                # Use measured height per line when available for better spacing
-                h = measured[idx][1] if idx < len(measured) else line_h
-                y += max(1, h)
+            for ln in lines_to_measure:
+                draw.text((left_pad, y), ln, fill="black", font=font_pil)
+                # Advance by widget line height when possible for consistent spacing
+                y += line_h
 
             # Auto-save image into ./img using the same filename protocol as PDFs (no dialog)
             try:
