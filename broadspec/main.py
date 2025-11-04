@@ -13,15 +13,15 @@ from tkinter import messagebox
 import yaml
 from datetime import datetime
 
-from core.calculator import PaymentCalculator
-from core.receipt_generator import ReceiptGenerator
-from core.models import PaymentData, OtherSite, Advance, CalculationResult
-from storage.vault_manager import VaultRepository
-from storage.file_operations import FileOperations
-from ui.main_window import BroadSpecGUI
-from core.exceptions import BroadSpecError, CalculationError, ValidationError, ReceiptGenerationError, ConfigurationError, VaultError
-from utils.validators import validate_payment_data
-from utils.formatters import format_currency_cop, format_currency_usd
+from broadspec.core.calculator import PaymentCalculator
+from broadspec.core.receipt_generator import ReceiptGenerator
+from broadspec.core.models import PaymentData, OtherSite, Advance, CalculationResult
+from broadspec.storage.vault_manager import VaultRepository
+from broadspec.storage.file_operations import FileOperations
+from broadspec.ui.main_window import BroadSpecGUI
+from broadspec.core.exceptions import BroadSpecError, CalculationError, ValidationError, ReceiptGenerationError, ConfigurationError, VaultError
+from broadspec.utils.validators import validate_payment_data
+from broadspec.utils.formatters import format_currency_cop, format_currency_usd
 
 
 class ApplicationController:
@@ -175,6 +175,31 @@ class ApplicationController:
             if isinstance(e, BroadSpecError):
                 raise
             raise ReceiptGenerationError(f"Failed to save receipt: {str(e)}")
+    
+    def generate_receipt_pdf(self, input_data: dict, result_data: dict, pdf_path: str):
+        """
+        Generate PDF receipt to specified path.
+        
+        Args:
+            input_data: Input data dictionary
+            result_data: Calculation result dictionary
+            pdf_path: Path where to save the PDF
+            
+        Raises:
+            BroadSpecError: If PDF generation fails
+        """
+        try:
+            # Convert back to model objects
+            payment_data = self._dict_to_payment_data(input_data)
+            result = self._dict_to_calculation_result(result_data)
+            
+            # Generate PDF to specified path
+            self.receipt_generator.generate_pdf_to_path(payment_data, result, pdf_path)
+            
+        except Exception as e:
+            if isinstance(e, BroadSpecError):
+                raise
+            raise ReceiptGenerationError(f"Failed to generate PDF: {str(e)}")
     
     def get_vault_entries(self) -> list[dict]:
         """Get all vault entries."""

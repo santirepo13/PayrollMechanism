@@ -251,6 +251,44 @@ class ReceiptGenerator:
         
         return lines
     
+    def generate_pdf_to_path(self, data: Dict[str, Any], result: CalculationResult, pdf_path: str):
+        """
+        Generate PDF receipt to a specified path.
+        
+        Args:
+            data: Input data dictionary
+            result: Calculation result
+            pdf_path: Specific path where to save the PDF
+            
+        Raises:
+            ReceiptGenerationError: If PDF generation fails
+        """
+        try:
+            # Ensure directory exists
+            directory = os.path.dirname(pdf_path)
+            if directory:
+                os.makedirs(directory, exist_ok=True)
+             
+            # Create PDF at specified path
+            c = canvas.Canvas(pdf_path, pagesize=letter)
+            width, height = letter
+            
+            # Add title
+            c.setFont("Courier-Bold", 16)
+            c.drawString(50, height - 50, "BROADSPEC PAYMENT RECEIPTS")
+            
+            # Add full receipt
+            self._add_full_receipt(c, data, result, width, height)
+            
+            # New page for simple receipt
+            c.showPage()
+            self._add_simple_receipt(c, data, result, width, height)
+            
+            c.save()
+            
+        except Exception as e:
+            raise ReceiptGenerationError(f"Failed to generate PDF: {str(e)}")
+    
     def _format_advances_full(self, data: Dict[str, Any]) -> list[str]:
         """Format advances for full receipt."""
         advances = data.get('advances', [])
