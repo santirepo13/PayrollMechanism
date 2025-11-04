@@ -33,21 +33,55 @@ class PDFPreviewer:
         Returns:
             True if successful, False otherwise
         """
+        import traceback
+        
+        print(f"Attempting to open PDF: {pdf_path}")
         if not self.preview_enabled:
+            print("Preview is disabled")
             return False
             
         try:
             if not os.path.exists(pdf_path):
+                print(f"PDF file does not exist: {pdf_path}")
+                print("Checking permissions and path validity...")
+                if not os.access(os.path.dirname(pdf_path), os.R_OK):
+                    print(f"Insufficient permissions to read directory: {os.path.dirname(pdf_path)}")
+                else:
+                    print(f"Directory is accessible, but file not found: {pdf_path}")
                 return False
                 
             self.current_pdf_path = pdf_path
             self.current_doc = fitz.open(pdf_path)
             self.current_page = 0
+            print(f"Successfully opened PDF: {pdf_path}")
             return True
             
-        except Exception:
+        except Exception as e:
+            print(f"Error opening PDF: {str(e)}")
+            print("Additional error details:")
+            traceback.print_exc()
             return False
     
+    def open_pdf_bytes(self, data: bytes) -> bool:
+        """
+        Open a PDF from raw bytes for preview.
+
+        Args:
+            data: PDF file content as bytes
+
+        Returns:
+            True if successful, False otherwise
+        """
+        if not self.preview_enabled or not data:
+            return False
+        try:
+            self.current_pdf_path = None
+            self.current_doc = fitz.open(stream=data, filetype="pdf")
+            self.current_page = 0
+            return True
+        except Exception:
+            return False
+
     def get_page_count(self) -> int:
         """Get the number of pages in the current PDF."""
         if not self.current_doc:
@@ -101,8 +135,28 @@ class PDFPreviewer:
             page = self.current_doc[page_num]
             mat = fitz.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
-            img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-            return img
+            # Ensure we return an RGB image regardless of alpha/colorspace
+            try:
+                if getattr(pix, "alpha", False) or getattr(pix, "n", 0) == 4:
+                    # RGBA -> convert to RGB
+                    img = Image.frombytes("RGBA", (pix.width, pix.height), pix.samples)
+                    img = img.convert("RGB")
+                else:
+                    # Assume RGB (n == 3) or grayscale (n == 1)
+                    if getattr(pix, "n", 0) == 1:
+                        img = Image.frombytes("L", (pix.width, pix.height), pix.samples)
+                        img = img.convert("RGB")
+                    else:
+                        img = Image.frombytes("RGB", (pix.width, pix.height), pix.samples)
+                return img
+            except Exception:
+                # Fallback: use a Pixmap conversion to RGB explicitly
+                try:
+                    rgb_pix = fitz.Pixmap(fitz.csRGB, pix)
+                    img = Image.frombytes("RGB", (rgb_pix.width, rgb_pix.height), rgb_pix.samples)
+                    return img
+                except Exception:
+                    return None
             
         except Exception:
             return None
@@ -121,7 +175,6 @@ class PDFPreviewer:
         img = self.get_page_image(page_num, zoom)
         if img is None:
             return None
-            
         try:
             return ImageTk.PhotoImage(img)
         except Exception:

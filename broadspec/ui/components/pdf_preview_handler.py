@@ -36,82 +36,110 @@ class PDFPreviewHandler:
         
         self.admin_tab_ui.preview_last_pdf = self.preview_last_pdf
         
-        self.admin_tab_ui.browse_pdf = self.browse_pdf
-        self.admin_tab_ui.load_pdf = self.load_pdf
-        self.admin_tab_ui.update_pdf_display = self.update_pdf_display
-        self.admin_tab_ui.prev_page = self.prev_page
-        self.admin_tab_ui.next_page = self.next_page
-        self.admin_tab_ui.on_zoom_change = self.on_zoom_change
+        # Do not override existing UI methods for VaultTabUI; keep their native implementations.
+        # AdminTabUI methods are individually patched above when present.
     
     def browse_pdf(self):
-        """Browse for a PDF file."""
+        """Browse for a PDF file from the vault."""
         filepath = filedialog.askopenfilename(
-            title="Select PDF file",
+            title="Select PDF file from Vault",
             filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")]
         )
         if filepath:
             if not hasattr(self.admin_tab_ui, 'pdf_path_var'):
                 self.admin_tab_ui.pdf_path_var = tk.StringVar()
-            self.admin_tab_ui.pdf_path_var.set(filepath)
+            self.admin_tab_ui.pdf_path_var.set(f"Vault: {filepath}")
     
     def load_pdf(self):
-        """Load the selected PDF file."""
+        """Load the selected PDF file from the vault."""
         pdf_path = None
         if hasattr(self.admin_tab_ui, 'pdf_path_var'):
             pdf_path = self.admin_tab_ui.pdf_path_var.get().strip()
         
-        if not pdf_path:
-            messagebox.showwarning("No File", "Please select a PDF file")
+        if not pdf_path or not pdf_path.startswith("Vault:"):
+            messagebox.showwarning("No File", "Please select a PDF file from the vault")
             return
         
+        pdf_path = pdf_path.replace("Vault: ", "")
         if not os.path.exists(pdf_path):
             messagebox.showerror("File Not Found", f"The file {pdf_path} does not exist")
             return
         
         if self.window_setup.pdf_previewer.open_pdf(pdf_path):
             self.update_pdf_display()
-            messagebox.showinfo("Success", "PDF loaded successfully")
+            messagebox.showinfo("Success", "PDF loaded successfully from vault")
         else:
-            messagebox.showerror("Error", "Failed to load PDF file")
+            messagebox.showerror("Error", "Failed to load PDF file from vault")
     
     def update_pdf_display(self):
         """Update the PDF display with the current page."""
-        if not self.window_setup.pdf_previewer.current_doc:
+        import traceback
+
+        try:
+            if not self.window_setup.pdf_previewer.current_doc:
+                return
+        except Exception:
             return
-        
+
         current_page = self.window_setup.pdf_previewer.get_current_page() + 1
         total_pages = self.window_setup.pdf_previewer.get_page_count()
-        
-        if hasattr(self.admin_tab_ui, 'admin_page_var'):
-            self.admin_tab_ui.admin_page_var.set(f"{current_page} / {total_pages}")
-        
+
+        try:
+            if hasattr(self.admin_tab_ui, 'admin_page_var'):
+                self.admin_tab_ui.admin_page_var.set(f"{current_page} / {total_pages}")
+            elif hasattr(self.admin_tab_ui, 'vault_page_var'):
+                self.admin_tab_ui.vault_page_var.set(f"{current_page} / {total_pages}")
+        except Exception:
+            pass
+
         zoom_str = "100%"
         if hasattr(self.admin_tab_ui, 'admin_zoom_var'):
             zoom_str = self.admin_tab_ui.admin_zoom_var.get()
-        zoom = float(zoom_str.rstrip('%')) / 100.0
+        elif hasattr(self.admin_tab_ui, 'vault_zoom_var'):
+            zoom_str = self.admin_tab_ui.vault_zoom_var.get()
+
+        try:
+            zoom = float(zoom_str.rstrip('%')) / 100.0
+        except Exception:
+            zoom = 1.0
         self.window_setup.pdf_previewer.set_zoom(zoom)
-        
+
         tk_image = self.window_setup.pdf_previewer.get_page_tk_image()
-        if tk_image:
-            if hasattr(self.admin_tab_ui, 'admin_pdf_canvas'):
-                self.admin_tab_ui.admin_pdf_canvas.delete("all")
-                
-                self.admin_tab_ui.admin_current_pdf_image = tk_image
-                
-                canvas_width = self.admin_tab_ui.admin_pdf_canvas.winfo_width()
-                canvas_height = self.admin_tab_ui.admin_pdf_canvas.winfo_height()
-                
-                if canvas_width <= 1:
-                    canvas_width = 600
-                if canvas_height <= 1:
-                    canvas_height = 400
-                
-                img_width = tk_image.width()
-                img_height = tk_image.height()
-                
-                self.admin_tab_ui.admin_pdf_canvas.configure(scrollregion=(0, 0, img_width, img_height))
-                
-                self.admin_tab_ui.admin_pdf_canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
+        if not tk_image:
+            return
+
+        canvas = None
+        image_attr = None
+        if hasattr(self.admin_tab_ui, 'admin_pdf_canvas'):
+            canvas = self.admin_tab_ui.admin_pdf_canvas
+            image_attr = 'admin_current_pdf_image'
+        elif hasattr(self.admin_tab_ui, 'vault_pdf_canvas'):
+            canvas = self.admin_tab_ui.vault_pdf_canvas
+            image_attr = 'vault_current_pdf_image'
+
+        if not canvas:
+            return
+
+        canvas.delete("all")
+
+        setattr(self.admin_tab_ui, image_attr, tk_image)
+
+        canvas_width = canvas.winfo_width()
+        canvas_height = canvas.winfo_height()
+
+        if canvas_width <= 1:
+            canvas_width = 600
+        if canvas_height <= 1:
+            canvas_height = 400
+
+        try:
+            img_width = tk_image.width()
+            img_height = tk_image.height()
+        except Exception:
+            return
+
+        canvas.configure(scrollregion=(0, 0, img_width, img_height))
+        canvas.create_image(0, 0, anchor=tk.NW, image=tk_image)
     
     def prev_page(self):
         """Go to the previous page."""
@@ -130,19 +158,31 @@ class PDFPreviewHandler:
         
         current_page = self.window_setup.pdf_previewer.get_current_page()
         total_pages = self.window_setup.pdf_previewer.get_page_count()
+        
+        if total_pages == 0:
+            print("No pages available to navigate")
+            return
+        
         if current_page < total_pages - 1:
             self.window_setup.pdf_previewer.set_current_page(current_page + 1)
             self.update_pdf_display()
     
-    def on_zoom_change(self, event):
-        """Handle zoom level change."""
+    def vault_on_zoom_change(self, event):
+        """Handle zoom level change for vault PDFs."""
         if not self.window_setup.pdf_previewer.current_doc:
             return
-        
+
         zoom_str = "100%"
         if hasattr(self.admin_tab_ui, 'admin_zoom_var'):
             zoom_str = self.admin_tab_ui.admin_zoom_var.get()
-        zoom = float(zoom_str.rstrip('%')) / 100.0
+        elif hasattr(self.admin_tab_ui, 'vault_zoom_var'):
+            zoom_str = self.admin_tab_ui.vault_zoom_var.get()
+
+        try:
+            zoom = float(zoom_str.rstrip('%')) / 100.0
+        except Exception:
+            zoom = 1.0
+
         self.window_setup.pdf_previewer.set_zoom(zoom)
         self.update_pdf_display()
     
@@ -251,6 +291,8 @@ class PDFPreviewHandler:
         entry = self.admin_tab_ui.vault_entries[selected_index]
         vault_filename = entry.get('vault_filename')
         
+        print(f"Retrieved vault filename: {vault_filename}")
+        
         if not vault_filename:
             messagebox.showerror("Error", "No vault filename found for selected entry")
             return
@@ -264,7 +306,13 @@ class PDFPreviewHandler:
             with open(temp_path, 'wb') as f:
                 f.write(file_bytes)
             
-            self.admin_tab_ui.admin_pdf_path_var = tk.StringVar(value=f"Vault: {vault_filename}")
+            # Verify file was written successfully
+            if not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0:
+                messagebox.showerror("Error", "Failed to write temporary PDF file")
+                return
+            
+            # Use a more descriptive label for the PDF path
+            self.admin_tab_ui.admin_pdf_path_var = tk.StringVar(value=f"Vault File: {vault_filename}")
             if self.window_setup.pdf_previewer.open_pdf(temp_path):
                 self.admin_update_pdf_display()
                 self.window_setup.notebook.select(self.window_setup.admin_tab)
@@ -283,6 +331,7 @@ class PDFPreviewHandler:
         try:
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                 temp_path = temp_file.name
+            
             
             self.controller.generate_receipt_pdf(
                 self.window_setup.current_input_data, 
