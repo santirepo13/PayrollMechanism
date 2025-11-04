@@ -635,53 +635,87 @@ class BroadSpecGUI:
             return
 
         try:
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-                temp_path = temp_file.name
+            # Ensure Receipts directory exists and build canonical PDF filename
+            receipts_dir = os.path.join(os.getcwd(), "Receipts")
+            os.makedirs(receipts_dir, exist_ok=True)
 
-            if hasattr(self.controller, 'generate_receipt_pdf'):
-                self.controller.generate_receipt_pdf(self.current_input_data, self.current_result_data, temp_path)
-            else:
-                if hasattr(self.controller, 'save_receipt'):
-                    saved_path = self.controller.save_receipt(self.current_input_data, self.current_result_data)
-                    try:
-                        with open(saved_path, 'rb') as src, open(temp_path, 'wb') as dst:
-                            dst.write(src.read())
-                    except Exception:
-                        try:
-                            os.remove(temp_path)
-                        except Exception:
-                            pass
-                        raise
+            # Build a lightweight result object if needed for filename generation
+            result_obj = None
+            try:
+                # If controller provides a helper, use it to build a CalculationResult object
+                if hasattr(self.controller, '_dict_to_calculation_result'):
+                    result_obj = self.controller._dict_to_calculation_result(self.current_result_data)
                 else:
-                    try:
-                        os.remove(temp_path)
-                    except Exception:
+                    # Fallback object with expected attributes
+                    class _R:
                         pass
-                    raise Exception('Controller does not support PDF generation API')
+                    result_obj = _R()
+                    result_obj.date = self.current_result_data.get('date', datetime.now().strftime("%Y-%m-%d"))
+                    result_obj.total_usd = self.current_result_data.get('total_usd', 0)
+                    result_obj.total_cop = self.current_result_data.get('total_cop', 0)
+            except Exception:
+                result_obj = None
+
+            # Generate canonical filename using pdf_protocols
+            try:
+                pdf_name = generate_filename(self.current_input_data, result_obj)
+            except Exception:
+                # Fallback naming
+                model_id = (self.current_input_data.get('model_id') or "").strip()
+                model_name = (self.current_input_data.get('model_name') or "").strip()
+                date_str = (self.current_result_data.get('date') or datetime.now().strftime("%Y-%m-%d"))
+                pdf_name = f"{model_id} - {model_name} - {date_str}.pdf"
+
+            pdf_path = os.path.join(receipts_dir, pdf_name)
+
+            # Prefer controller.save_receipt which returns the actual path written by the controller.
+            # This avoids trying to move/duplicate files and prevents temporary files from accumulating.
+            pdf_path_to_import = None
+            if hasattr(self.controller, 'save_receipt'):
+                saved_path = self.controller.save_receipt(self.current_input_data, self.current_result_data)
+                if not saved_path:
+                    raise Exception("Controller.save_receipt did not return a path")
+                pdf_path_to_import = os.path.abspath(saved_path)
+            elif hasattr(self.controller, 'generate_receipt_pdf'):
+                # Fallback: ask controller to generate directly to the canonical path
+                self.controller.generate_receipt_pdf(self.current_input_data, self.current_result_data, pdf_path)
+                pdf_path_to_import = os.path.abspath(pdf_path)
+            else:
+                raise Exception('Controller does not support PDF generation API')
 
             if not hasattr(self.controller, 'import_to_vault'):
-                try:
-                    os.remove(temp_path)
-                except Exception:
-                    pass
                 raise Exception('Vault import API is not available on controller')
 
-            success_count, failure_count = self.controller.import_to_vault([temp_path])
-
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
-
-            if success_count > 0:
-                messagebox.showinfo('Saved to Vault', f'PDF saved to encrypted vault. Use Admin tab to export. Imported: {success_count}, Failed: {failure_count}')
+            # Import the PDF to the vault only when the controller did not already handle vault import.
+            # If we used controller.save_receipt, that method in ApplicationController already
+            # adds the generated PDF to the vault, so calling import_to_vault again would create duplicates.
+            if hasattr(self.controller, 'save_receipt'):
+                # The controller saved the PDF and typically handled vault import itself.
                 try:
-                    self.refresh_vault()
+                    messagebox.showinfo('Saved', f'PDF saved by controller: {pdf_path_to_import}')
+                    # Attempt to refresh vault list in case controller already imported
+                    try:
+                        self.refresh_vault()
+                    except Exception:
+                        pass
                 except Exception:
+                    # Non-fatal UI failure
                     pass
             else:
-                messagebox.showwarning('Vault Import', f'No files were imported to the vault. Failures: {failure_count}')
+                # Controller didn't run save_receipt; import the generated file ourselves
+                try:
+                    success_count, failure_count = self.controller.import_to_vault([pdf_path_to_import])
+
+                    if success_count > 0:
+                        messagebox.showinfo('Saved to Vault', f'PDF saved to encrypted vault. Use Admin tab to export. Imported: {success_count}, Failed: {failure_count}')
+                        try:
+                            self.refresh_vault()
+                        except Exception:
+                            pass
+                    else:
+                        messagebox.showwarning('Vault Import', f'No files were imported to the vault. Failures: {failure_count}')
+                except Exception as e:
+                    messagebox.showerror("Vault Import Error", f"Failed to import to vault: {str(e)}")
 
         except BroadSpecError as e:
             messagebox.showerror("Save Error", str(e))
