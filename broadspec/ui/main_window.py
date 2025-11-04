@@ -6,11 +6,12 @@ import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 from datetime import datetime
 from typing import Dict, Any, Optional
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageDraw, ImageFont
 
 from broadspec.core.exceptions import BroadSpecError, CalculationError, VaultError
 from broadspec.utils.formatters import format_currency_cop, format_currency_usd
 from broadspec.utils.pdf_preview import PDFPreviewer
+from broadspec.utils.pdf_protocols import generate_filename
 
 
 class BroadSpecGUI:
@@ -123,6 +124,7 @@ class BroadSpecGUI:
         
         ttk.Button(action_frame, text="Calculate", command=self.calculate).pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Clear Fields", command=self.clear_fields).pack(side=tk.LEFT, padx=5)
+        ttk.Button(action_frame, text="Save Model Image", command=self.save_model_image).pack(side=tk.LEFT, padx=5)
         ttk.Button(action_frame, text="Save PDF", command=self.save_pdf).pack(side=tk.LEFT, padx=5)
         
     
@@ -684,6 +686,169 @@ class BroadSpecGUI:
             messagebox.showerror("Save Error", str(e))
         except Exception as e:
             messagebox.showerror("Unexpected Error", f"An unexpected error occurred: {str(e)}")
+
+    def save_model_image(self):
+        """
+        Save a cropped image (JPG/PNG) of the model screenshot area.
+
+        Behavior:
+        - Takes the text in the 'model_text' widget.
+        - Finds the last separator line composed of dashes (-----) and crops the content
+          to a small amount taller than that final separator (keeps one extra line).
+        - Renders the cropped text to an image using a monospace font and asks the user
+          where to save the file (defaults to .jpg).
+        """
+        if not self.current_input_data or not self.current_result_data:
+            messagebox.showwarning("No Data", "Please calculate first before saving")
+            return
+
+        try:
+            # Get full content from model text widget
+            content = self.model_text.get("1.0", tk.END)
+            lines = content.splitlines()
+
+            # Find the last line that looks like a separator (only dashes, length >= 3)
+            sep_idx = None
+            for i in range(len(lines) - 1, -1, -1):
+                line = lines[i].strip()
+                if len(line) >= 3 and set(line) == {"-"}:
+                    sep_idx = i
+                    break
+
+            # Include a little space below the separator (one extra line)
+            if sep_idx is not None:
+                end_idx = min(len(lines), sep_idx + 2)
+            else:
+                end_idx = len(lines)
+
+            selected_lines = lines[:end_idx]
+
+            # Trim trailing blank lines for a tighter image
+            while selected_lines and selected_lines[-1].strip() == "":
+                selected_lines.pop()
+
+            text_to_render = "\n".join(selected_lines) or " "
+
+            # Choose a monospace font, fall back to default if not available
+            font_size = 14
+            try:
+                # Try common monospace fonts
+                font = ImageFont.truetype("Courier New.ttf", font_size)
+            except Exception:
+                try:
+                    font = ImageFont.truetype("DejaVuSansMono.ttf", font_size)
+                except Exception:
+                    font = ImageFont.load_default()
+
+            # Measure text to determine image size (robust across Pillow versions)
+            padding = 12
+            dummy_img = Image.new("RGB", (1, 1), "white")
+            draw = ImageDraw.Draw(dummy_img)
+
+            def _measure_text(draw_obj, text, font_obj):
+                """Return (width, height) for the given text using available methods."""
+                # Prefer textbbox (newer Pillow), fall back to font.getsize or draw.textsize
+                try:
+                    bbox = draw_obj.textbbox((0, 0), text, font=font_obj)
+                    w = bbox[2] - bbox[0]
+                    h = bbox[3] - bbox[1]
+                    return w, h
+                except Exception:
+                    pass
+
+                try:
+                    return font_obj.getsize(text)
+                except Exception:
+                    pass
+
+                try:
+                    return draw_obj.textsize(text, font=font_obj)
+                except Exception:
+                    # Last resort: approximate
+                    avg_char_w = font_size * 0.6
+                    return int(len(text) * avg_char_w), font_size + 4
+
+            lines_to_measure = text_to_render.split("\n")
+            max_w = 0
+            line_h = 0
+            measured = []
+            for ln in lines_to_measure:
+                w, h = _measure_text(draw, ln, font)
+                measured.append((w, h))
+                if w > max_w:
+                    max_w = w
+                if h > line_h:
+                    line_h = h
+
+            # Ensure a sensible minimum line height
+            if line_h <= 0:
+                line_h = font_size + 4
+
+            img_w = int(max_w + padding * 2)
+            img_h = int(line_h * len(lines_to_measure) + padding * 2)
+
+            # Create final image and draw text
+            img = Image.new("RGB", (max(1, img_w), max(1, img_h)), "white")
+            draw = ImageDraw.Draw(img)
+            y = padding
+            for idx, ln in enumerate(lines_to_measure):
+                draw.text((padding, y), ln, fill="black", font=font)
+                # Use measured height per line when available for better spacing
+                h = measured[idx][1] if idx < len(measured) else line_h
+                y += max(1, h)
+
+            # Auto-save image into ./img using the same filename protocol as PDFs (no dialog)
+            try:
+                img_dir = os.path.join(os.getcwd(), "img")
+                os.makedirs(img_dir, exist_ok=True)
+
+                # Try to build the exact PDF filename used by the app, then replace .pdf -> .jpg
+                try:
+                    result_obj = None
+                    if hasattr(self.controller, '_dict_to_calculation_result'):
+                        # controller helper converts dict -> CalculationResult for generate_filename
+                        result_obj = self.controller._dict_to_calculation_result(self.current_result_data)
+                    pdf_name = generate_filename(self.current_input_data, result_obj)
+                except Exception:
+                    # Fallback simple name if generate_filename isn't available for some reason
+                    model_id = (self.current_input_data.get('model_id') or "").strip()
+                    model_name = (self.current_input_data.get('model_name') or "").strip()
+                    date_str = (self.current_result_data.get('date') or datetime.now().strftime("%Y-%m-%d"))
+                    pdf_name = f"{model_id} - {model_name} - {date_str}.pdf"
+
+                base = os.path.splitext(pdf_name)[0]
+                filename = f"{base}.jpg"
+                filename = os.path.basename(filename)  # ensure no directories
+                filepath = os.path.join(img_dir, filename)
+
+                # Save as high-quality JPEG
+                rgb = img.convert("RGB")
+                rgb.save(filepath, format="JPEG", quality=90)
+
+                messagebox.showinfo("Saved Image", f"Model image automatically saved: {filepath}")
+            except Exception as _save_err:
+                # If automatic save fails, fall back to asking the user
+                try:
+                    filepath = filedialog.asksaveasfilename(
+                        defaultextension=".jpg",
+                        filetypes=[("JPEG image", "*.jpg"), ("PNG image", "*.png"), ("All files", "*.*")],
+                        title="Save Model Image"
+                    )
+                    if not filepath:
+                        return
+                    _, ext = os.path.splitext(filepath)
+                    ext = ext.lower()
+                    if ext == ".png":
+                        img.save(filepath, format="PNG")
+                    else:
+                        rgb = img.convert("RGB")
+                        rgb.save(filepath, format="JPEG", quality=90)
+                    messagebox.showinfo("Saved Image", f"Model image saved: {filepath}")
+                except Exception as e:
+                    messagebox.showerror("Save Error", f"Failed to save model image: {str(e)}")
+
+        except Exception as e:
+            messagebox.showerror("Save Error", f"Failed to save model image: {str(e)}")
 
 
 
@@ -1271,16 +1436,7 @@ Advances:
 """
     
     def _generate_model_receipt(self, input_data: dict, result_data: dict) -> str:
-        """Generate model receipt text for payment confirmation in a compact, legacy-friendly format.
-
-        Produces an organized layout suitable for both validation screenshots and
-        the compact 'model screenshot' used in the app. Rules applied:
-          - Header is centered.
-          - Advances section is omitted if there are no advances with amount > 0.
-          - Fines are omitted when show_fines is False (home worker).
-          - Missing or zero-value fields produce empty/blank lines so layout remains stable.
-        """
-        # Width used for centering header in monospace output
+       
         width = 38
         header_lines = [
             "BROADSPEC".center(width),
