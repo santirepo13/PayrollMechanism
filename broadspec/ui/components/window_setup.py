@@ -46,11 +46,19 @@ class WindowSetup:
         self.pdf_previewer = PDFPreviewer(config)
         
         self.notebook = ttk.Notebook(self.main_frame)
+        
+        # Initialize main tab
         self.main_tab = ttk.Frame(self.notebook)
+        
+        # Initialize vault and admin tabs (UI components are created in BroadSpecGUI)
+        self.vault_tab = ttk.Frame(self.notebook)
         self.admin_tab = ttk.Frame(self.notebook)
+
+        # Add tabs to notebook
         self.notebook.add(self.main_tab, text="Main")
-        self.notebook.add(self.admin_tab, text="Vault")
-        self.notebook.pack(fill="both", expand=True)
+        self.notebook.add(self.vault_tab, text="Vault")
+        self.notebook.add(self.admin_tab, text="Admin")
+        self.notebook.pack(side=tk.TOP, fill=tk.BOTH, expand=True)
         
         self.current_input_data = None
         self.current_result_data = None
