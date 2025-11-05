@@ -49,7 +49,7 @@ class WindowSetup:
         self.main_tab = ttk.Frame(self.notebook)
         self.admin_tab = ttk.Frame(self.notebook)
         self.notebook.add(self.main_tab, text="Main")
-        self.notebook.add(self.admin_tab, text="Admin")
+        self.notebook.add(self.admin_tab, text="Vault")
         self.notebook.pack(fill="both", expand=True)
         
         self.current_input_data = None
