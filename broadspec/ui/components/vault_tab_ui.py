@@ -397,17 +397,10 @@ class VaultTabUI:
             return
         
         try:
-            import tempfile
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-                temp_path = temp_file.name
-            
             file_bytes = self.controller.vault_repository.retrieve_file(vault_filename)
             
-            with open(temp_path, 'wb') as f:
-                f.write(file_bytes)
-            
             self.vault_pdf_path_var = tk.StringVar(value=f"Vault: {vault_filename}")
-            if self.window_setup.pdf_previewer.open_pdf(temp_path):
+            if self.window_setup.pdf_previewer.open_pdf_bytes(file_bytes):
                 self.update_pdf_display()
                 self.window_setup.notebook.select(self.parent_tab)
             else:

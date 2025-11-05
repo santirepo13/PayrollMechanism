@@ -298,22 +298,11 @@ class PDFPreviewHandler:
             return
         
         try:
-            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
-                temp_path = temp_file.name
-            
             file_bytes = self.controller.vault_repository.retrieve_file(vault_filename)
-            
-            with open(temp_path, 'wb') as f:
-                f.write(file_bytes)
-            
-            # Verify file was written successfully
-            if not os.path.exists(temp_path) or os.path.getsize(temp_path) == 0:
-                messagebox.showerror("Error", "Failed to write temporary PDF file")
-                return
             
             # Use a more descriptive label for the PDF path
             self.admin_tab_ui.admin_pdf_path_var = tk.StringVar(value=f"Vault File: {vault_filename}")
-            if self.window_setup.pdf_previewer.open_pdf(temp_path):
+            if self.window_setup.pdf_previewer.open_pdf_bytes(file_bytes):
                 self.admin_update_pdf_display()
                 self.window_setup.notebook.select(self.window_setup.admin_tab)
             else:
