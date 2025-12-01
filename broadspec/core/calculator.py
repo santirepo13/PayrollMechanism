@@ -27,7 +27,9 @@ class PaymentCalculator:
             percent = percent / 100.0
         net_usd = usd_from_tokens * percent
 
-        other_sites_total_usd = sum(site.get_usd_equivalent() for site in data.other_sites) * percent
+        # Other sites USD should be treated like tokens: convert to USD, then apply percentage.
+        other_sites_total_usd_raw = sum(site.get_usd_equivalent() for site in data.other_sites)
+        other_sites_total_usd = other_sites_total_usd_raw * percent
         
         total_usd_precalc = net_usd + other_sites_total_usd + data.previous_fortnight_usd
         

@@ -1,5 +1,6 @@
+import os
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 from typing import Dict, Any, Optional
 
 from broadspec.utils.pdf_preview import PDFPreviewer
@@ -25,6 +26,19 @@ class BroadSpecGUI:
         self.controller = controller
         
         self.window_setup = WindowSetup(root, config)
+
+        # Track temp files created during runtime so we can delete them on exit.
+        # Components that create temp files should add paths to this set:
+        #   self.window_setup.temp_files.add(temp_path)
+        if not hasattr(self.window_setup, "temp_files"):
+            self.window_setup.temp_files = set()
+        
+        # Register handler to clean up temp files when window closes (user clicks X)
+        try:
+            self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+        except Exception:
+            # If protocol registration fails, continue without crash
+            pass
         
         self.main_tab_ui = MainTabUI(self.window_setup.main_tab, self.window_setup)
         self.vault_tab_ui = VaultTabUI(self.window_setup.vault_tab, self.window_setup, controller)
@@ -36,6 +50,36 @@ class BroadSpecGUI:
         self.resolution_manager = ResolutionManager(self.window_setup, self.vault_tab_ui)
         self.pdf_preview_handler = PDFPreviewHandler(self.window_setup, self.vault_tab_ui, controller)
     
+    def _on_close(self):
+        """Cleanup temp files and exit the application."""
+        try:
+            # Inform the user
+            try:
+                messagebox.showinfo("Exiting", "Deleting temporary files and exiting...")
+            except Exception:
+                pass
+
+            # Delete registered temp files
+            temp_files = getattr(self.window_setup, "temp_files", None)
+            if temp_files:
+                for p in list(temp_files):
+                    try:
+                        if p and os.path.exists(p):
+                            os.remove(p)
+                    except Exception:
+                        # best-effort deletion; ignore failures
+                        pass
+                try:
+                    temp_files.clear()
+                except Exception:
+                    pass
+        finally:
+            # Destroy root window and exit
+            try:
+                self.root.destroy()
+            except Exception:
+                pass
+
     @property
     def admin_tab(self):
         """Access to admin tab UI component."""
@@ -48,10 +92,10 @@ class BroadSpecGUI:
 
     @property
     def vault_tab(self):
-        """Access to vault tab UI component."""
+        """Access to vault tab UI component"""
         return self.vault_tab_ui
     
     @property
     def notebook(self):
-        """Access to notebook widget."""
+        """Access to notebook widget"""
         return self.window_setup.notebook

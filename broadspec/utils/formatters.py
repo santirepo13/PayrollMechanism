@@ -80,11 +80,11 @@ def format_currency(amount: float, currency: str = "COP") -> str:
 
 
 def format_currency_cop(amount: float, show_decimals: bool = True) -> str:
-    """Format COP currency amount."""
+    """Format COP currency amount with leading dollar sign to match receipts."""
     if show_decimals:
-        return f"{amount:,.2f} COP"
+        return f"${amount:,.2f} COP"
     else:
-        return f"{amount:,.0f} COP"
+        return f"${amount:,.0f} COP"
 
 
 def format_currency_usd(amount: float) -> str:

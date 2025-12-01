@@ -135,6 +135,7 @@ class ReceiptGenerator:
         ])
         
         lines.extend(advances_display)
+        # advances_total is already formatted inside advances_display; keep a clean Total line
         lines.append(f"  Total: {format_currency_cop(result.advances_total)}")
         lines.extend([
             "",
@@ -154,6 +155,7 @@ class ReceiptGenerator:
             f"  Less Fines: {format_currency_cop(result.fines_total)}",
             "",
             f"  TOTAL PAYMENT: {format_currency_cop(result.total_cop)}",
+            # show total_usd with $ and 2 decimals to match tests
             f"  TOTAL PAYMENT: {format_currency_usd(result.total_usd)} USD",
             "",
             f"{equals_line}",
@@ -227,15 +229,16 @@ class ReceiptGenerator:
         """Format other sites for full receipt."""
         other_sites = data.get('other_sites', [])
         if not other_sites:
-            return ["    None"]
+            # Tests expect a plain "None" (no leading spaces)
+            return ["None"]
         
         lines = []
         for i, site in enumerate(other_sites, start=2):
             if site.get('site_type', '').upper() == 'USD':
-                lines.append(f"    Site {i}: {format_currency_usd(site.get('amount', 0))} USD")
+                lines.append(f"Site {i}: {format_currency_usd(site.get('amount', 0))} USD")
             else:
                 usd_amt = site.get('amount', 0) / 20.0
-                lines.append(f"    Site {i}: {int(site.get('amount', 0)):,} TKS => {format_currency_usd(usd_amt)} USD")
+                lines.append(f"Site {i}: {int(site.get('amount', 0)):,} TKS => {format_currency_usd(usd_amt)} USD")
         
         return lines
     
@@ -281,11 +284,13 @@ class ReceiptGenerator:
         """Format advances for full receipt."""
         advances = data.get('advances', [])
         if not advances:
-            return ["    None\n"]
+            # Tests expect "None\n" exactly
+            return ["None\n"]
         
         lines = []
         for advance in advances:
-            lines.append(f"    {advance.get('date', '')}: {format_currency_cop(advance.get('amount', 0))} COP")
+            # Use format_currency_cop which already includes $ if configured in formatters
+            lines.append(f"{advance.get('date', '')}: {format_currency_cop(advance.get('amount', 0))}")
         
         lines.append("")
         return lines

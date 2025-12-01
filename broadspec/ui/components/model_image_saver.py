@@ -43,8 +43,22 @@ class ModelImageSaver:
 
             selected_lines = lines[:end_idx]
 
+            # Remove trailing blank lines
             while selected_lines and selected_lines[-1].strip() == "":
                 selected_lines.pop()
+
+            # Exclude any lines referencing BTK TRM from the model screenshot.
+            # This ensures sensitive or undesired BTK TRM values are not included in saved images.
+            filtered_lines = []
+            for ln in selected_lines:
+                try:
+                    if 'btk' in ln.lower():
+                        continue
+                except Exception:
+                    # If anything goes wrong when checking, keep the line to avoid data loss
+                    pass
+                filtered_lines.append(ln)
+            selected_lines = filtered_lines
 
             text_to_render = "\n".join(selected_lines) or " "
 

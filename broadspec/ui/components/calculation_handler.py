@@ -215,7 +215,7 @@ FINAL CALCULATION:
         parts.append(f"Model: {model_name}")
         parts.append("")
         parts.append(f"TRM Official: {trm_official}")
-        parts.append(f"BTK TRM: {safe_float(input_data.get('btk_trm_cop', 0)):,.2f} COP")
+        # BTK TRM must not appear in the model screenshot — omit it here.
         parts.append(f"TRM BroadSpec: {trm_broadspec}")
         parts.append("")
         parts.append(f"Tokens: {tokens}")

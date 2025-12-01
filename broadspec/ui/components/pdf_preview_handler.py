@@ -321,10 +321,16 @@ class PDFPreviewHandler:
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                 temp_path = temp_file.name
             
+            # Register temp file for deletion on exit
+            try:
+                if hasattr(self.window_setup, 'temp_files'):
+                    self.window_setup.temp_files.add(temp_path)
+            except Exception:
+                pass
             
             self.controller.generate_receipt_pdf(
-                self.window_setup.current_input_data, 
-                self.window_setup.current_result_data, 
+                self.window_setup.current_input_data,
+                self.window_setup.current_result_data,
                 temp_path
             )
             

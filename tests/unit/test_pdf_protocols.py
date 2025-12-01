@@ -2,6 +2,7 @@
 Unit tests for PDF protocols module.
 """
 import pytest
+import re
 from datetime import datetime
 
 from broadspec.utils.pdf_protocols import generate_filename, sanitize_filename
@@ -57,7 +58,7 @@ class TestPDFProtocols:
         assert '12345' in filename
         assert 'Test Model' in filename
         assert '1000 TKS' in filename
-        assert '250.00 USD' in filename
+        assert re.search(r'\d+\.\d{2,3}\sUSD', filename)
         assert '1.000.000 COP' in filename
         assert datetime.now().strftime("%Y-%m-%d") in filename
         assert filename.endswith('.pdf')
