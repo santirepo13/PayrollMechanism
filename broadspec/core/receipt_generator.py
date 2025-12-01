@@ -1,5 +1,6 @@
 import os
 from typing import Dict, Any
+from io import BytesIO
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import letter
 
@@ -42,6 +43,28 @@ class ReceiptGenerator:
             
         except Exception as e:
             raise ReceiptGenerationError(f"Failed to generate PDF: {str(e)}")
+    
+    def generate_pdf_bytes(self, data: Dict[str, Any], result: CalculationResult) -> bytes:
+        """Generate PDF receipt and return bytes (in-memory)."""
+        try:
+            buf = BytesIO()
+            c = canvas.Canvas(buf, pagesize=letter)
+            width, height = letter
+            
+            c.setFont("Courier-Bold", 16)
+            c.drawString(50, height - 50, "BROADSPEC PAYMENT RECEIPTS")
+            
+            self._add_full_receipt(c, data, result, width, height)
+            
+            c.showPage()
+            self._add_simple_receipt(c, data, result, width, height)
+            
+            c.save()
+            
+            return buf.getvalue()
+            
+        except Exception as e:
+            raise ReceiptGenerationError(f"Failed to generate PDF bytes: {str(e)}")
     
     def _add_full_receipt(self, c: canvas.Canvas, data: Dict[str, Any],
                          result: CalculationResult, width: float, height: float):

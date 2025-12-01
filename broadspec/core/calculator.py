@@ -1,11 +1,11 @@
-from typing import List
+from typing import List, Optional
 from .models import PaymentData, CalculationResult, OtherSite, Advance
 
 
 class PaymentCalculator:
     """Handles all payment calculations."""
     
-    def __init__(self, config: dict = None):
+    def __init__(self, config: Optional[dict] = None):
         """Initialize calculator with configuration."""
         self.config = config or {}
         self.token_to_usd_rate = self.config.get('calculation', {}).get('token_to_usd_rate', 20.0)
@@ -40,9 +40,21 @@ class PaymentCalculator:
         total_cop = valor_broadspec_cop - advances_total - fines_total
         total_usd = total_cop / trm_broadspec_cop
         
+        # Token value in COP (BTK TRM * 0.05) as per calculation notes
+        token_value_cop = data.btk_trm_cop * 0.05
+        
+        # USD to send to platform:
+        # ((Total COP + Transfer Cost COP) / token_value_cop) => tokens required
+        # divide by token_to_usd_rate (tokens per USD) to get USD
+        if token_value_cop <= 0 or self.token_to_usd_rate <= 0:
+            usd_to_send_platform = 0.0
+        else:
+            usd_to_send_platform = ((total_cop + transfer_cost_cop) / token_value_cop) / self.token_to_usd_rate
+        
         return CalculationResult(
             total_cop=total_cop,
             total_usd=total_usd,
+            btk_trm_cop=data.btk_trm_cop,
             trm_broadspec_cop=trm_broadspec_cop,
             transfer_cost_cop=transfer_cost_cop,
             valor_broadspec_cop=valor_broadspec_cop,
@@ -54,7 +66,8 @@ class PaymentCalculator:
             usd_from_tokens=usd_from_tokens,
             net_usd=net_usd,
             total_usd_precalc=total_usd_precalc,
-            date=data.date if hasattr(data, 'date') else ""
+            usd_to_send_platform=usd_to_send_platform,
+            date=getattr(data, 'date', "")
         )
     
     def _calculate_fines(self, data: PaymentData) -> tuple[float, str, bool]:

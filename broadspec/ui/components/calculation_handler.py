@@ -128,6 +128,7 @@ Date: {result_data.get('date', '')}
   
 INPUT VALUES:
   TRM Official $COP: {input_data.get('trm_official_cop', 0):,.2f} COP
+  BTK TRM $COP: {input_data.get('btk_trm_cop', 0):,.2f} COP
   TRM BROADSPEC $COP: {result_data.get('trm_broadspec_cop', 0):,.2f} COP
   Tokens (TKS): {input_data.get('tokens', 0):,}
   Percentage: {input_data.get('percentage', 0):.0%}
@@ -138,9 +139,9 @@ INPUT VALUES:
 ADVANCES:
 {advances_display}  Total: {result_data.get('advances_total', 0):,.2f} COP{fines_section}
 CALCULATED VALUES:
-  USD from Tokens: {result_data.get('usd_from_tokens', 0):,.2f} USD
-  Net Amount USD: {result_data.get('net_usd', 0):,.2f} USD
-  Total USD (Pre-calc): {result_data.get('total_usd_precalc', 0):,.2f} USD
+  USD from Tokens: {result_data.get('usd_from_tokens', 0):,.3f} USD
+  Net Amount USD: {result_data.get('net_usd', 0):,.3f} USD
+  Total USD (Pre-calc): {result_data.get('total_usd_precalc', 0):,.3f} USD
   Total USD in COP: {result_data.get('total_usd_precalc', 0) * result_data.get('trm_broadspec_cop', 1):,.2f} COP
   Transfer Cost: {result_data.get('transfer_cost_cop', 0):,.2f} COP
   
@@ -150,8 +151,9 @@ FINAL CALCULATION:
   Less Fines: {result_data.get('fines_total', 0):,.2f} COP
    
   TOTAL PAYMENT: {result_data.get('total_cop', 0):,.2f} COP
-  TOTAL PAYMENT: {result_data.get('total_usd', 0):,.2f} USD
- 
+  TOTAL PAYMENT: {result_data.get('total_usd', 0):,.3f} USD
+  USD to Send (Platform): {result_data.get('usd_to_send_platform', 0):,.3f} USD
+
 {equals_line}
      Payment calculation completed
 {equals_line}
@@ -213,17 +215,18 @@ FINAL CALCULATION:
         parts.append(f"Model: {model_name}")
         parts.append("")
         parts.append(f"TRM Official: {trm_official}")
+        parts.append(f"BTK TRM: {safe_float(input_data.get('btk_trm_cop', 0)):,.2f} COP")
         parts.append(f"TRM BroadSpec: {trm_broadspec}")
         parts.append("")
         parts.append(f"Tokens: {tokens}")
         parts.append("")
-        parts.append("Other Sites:")
+        # Only show Other Sites section when there are entries
         if other_sites_lines:
             parts.append("")
-            parts.extend(other_sites_lines)
-        else:
+            parts.append("Other Sites:")
             parts.append("")
- 
+            parts.extend(other_sites_lines)
+  
         parts.append("")
         parts.append(f"Percentage: {percentage:.0%}")
 

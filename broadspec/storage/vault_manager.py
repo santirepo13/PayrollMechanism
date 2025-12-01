@@ -167,7 +167,7 @@ class VaultRepository:
                                 new_zip.writestr(name, old_zip.read(name))
                     except Exception:
                         pass
-                
+                    
                 orig_name = os.path.basename(source_filepath)
                 safe_name = self._sanitize_filename(orig_name)
                 candidate = safe_name
@@ -219,6 +219,74 @@ class VaultRepository:
             
         except Exception as e:
             raise VaultError(f"Failed to add file to vault: {str(e)}")
+
+    def add_bytes(self, file_bytes: bytes, orig_filename: str, metadata: Dict[str, Any]) -> VaultEntry:
+        """Add in-memory bytes as a file to the vault (does not write local file)."""
+        try:
+            existing_zip_bytes = self._decrypt_vault()
+            
+            new_zip_buf = BytesIO()
+            with zipfile.ZipFile(new_zip_buf, 'w') as new_zip:
+                # copy existing entries
+                if existing_zip_bytes:
+                    old_buf = BytesIO(existing_zip_bytes)
+                    try:
+                        with zipfile.ZipFile(old_buf, 'r') as old_zip:
+                            for name in old_zip.namelist():
+                                new_zip.writestr(name, old_zip.read(name))
+                    except Exception:
+                        pass
+
+                safe_name = self._sanitize_filename(orig_filename)
+                candidate = safe_name
+                counter = 1
+
+                existing_names = set()
+                if existing_zip_bytes:
+                    old_buf = BytesIO(existing_zip_bytes)
+                    try:
+                        with zipfile.ZipFile(old_buf, 'r') as old_zip:
+                            existing_names = set(old_zip.namelist())
+                    except Exception:
+                        pass
+
+                while candidate in existing_names:
+                    base, ext = os.path.splitext(safe_name)
+                    candidate = f"{base} ({counter}){ext}"
+                    counter += 1
+
+                new_zip.writestr(candidate, file_bytes)
+
+            new_zip_bytes = new_zip_buf.getvalue()
+            enc = self.fernet.encrypt(new_zip_bytes)
+            with open(self.single_vault_path, 'wb') as f:
+                f.write(enc)
+
+            entry = VaultEntry(
+                vault_filename=candidate,
+                orig_filename=orig_filename,
+                model_id=metadata.get("model_id", ""),
+                model_name=metadata.get("model_name", ""),
+                tokens=metadata.get("tokens", ""),
+                date=metadata.get("date", ""),
+                saved_at=datetime.now().isoformat()
+            )
+
+            self.vault_index.append({
+                "vault_filename": entry.vault_filename,
+                "orig_filename": entry.orig_filename,
+                "model_id": entry.model_id,
+                "model_name": entry.model_name,
+                "tokens": entry.tokens,
+                "date": entry.date,
+                "saved_at": entry.saved_at
+            })
+
+            self._save_vault_index()
+            return entry
+
+        except Exception as e:
+            raise VaultError(f"Failed to add bytes to vault: {str(e)}")
     
     def retrieve_file(self, vault_filename: str) -> bytes:
         """Retrieve a file from the vault."""

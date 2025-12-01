@@ -18,6 +18,7 @@ from broadspec.ui.main_window import BroadSpecGUI
 from broadspec.core.exceptions import BroadSpecError, CalculationError, ValidationError, ReceiptGenerationError, ConfigurationError, VaultError
 from broadspec.utils.validators import validate_payment_data
 from broadspec.utils.formatters import format_currency_cop, format_currency_usd
+from broadspec.utils.pdf_protocols import generate_filename
 
 
 class ApplicationController:
@@ -101,6 +102,10 @@ class ApplicationController:
             input_dict = self._payment_data_to_dict(payment_data)
             result_dict = self._calculation_result_to_dict(result)
             
+            # Ensure BTK TRM (btk_trm_cop) is available in the result payload
+            # so UI and downstream consumers can reference the exact BTK TRM used.
+            result_dict['btk_trm_cop'] = payment_data.btk_trm_cop
+            
             return input_dict, result_dict
             
         except Exception as e:
@@ -109,29 +114,43 @@ class ApplicationController:
             raise CalculationError(f"Payment calculation failed: {str(e)}")
     
     def save_receipt(self, input_data: dict, result_data: dict) -> str:
-        """Save receipt as PDF and optionally add to vault."""
+        """Save receipt directly into the encrypted vault (no local file)."""
         try:
             payment_data = self._dict_to_payment_data(input_data)
             result = self._dict_to_calculation_result(result_data)
             
-            pdf_path = self.receipt_generator.generate_pdf(input_data, result)
+            # Generate PDF in-memory (bytes) and add to vault without creating local file
+            pdf_bytes = self.receipt_generator.generate_pdf_bytes(input_data, result)
             
-            if (self.vault_repository and
-                not (input_data.get('model_id') == "000" and
-                     input_data.get('model_name', '').lower() == "test")):
-                
-                try:
-                    metadata = {
-                        'model_id': input_data.get('model_id'),
-                        'model_name': input_data.get('model_name'),
-                        'tokens': input_data.get('tokens'),
-                        'date': result.date
-                    }
-                    self.vault_repository.add_file(pdf_path, metadata)
-                except Exception as e:
-                    print(f"Warning: Failed to add to vault: {str(e)}")
+            # Build a filename following existing protocol
+            try:
+                filename = generate_filename(input_data, result)
+            except Exception:
+                model_id = (input_data.get('model_id') or "").strip()
+                model_name = (input_data.get('model_name') or "").strip()
+                date_str = (result.date or "")
+                filename = f"{model_id} - {model_name} - {date_str}.pdf"
             
-            return pdf_path
+            # Ensure vault is available
+            if not self.vault_repository:
+                raise VaultError("Vault not available")
+            
+            # Prepare metadata for vault index
+            metadata = {
+                'model_id': input_data.get('model_id'),
+                'model_name': input_data.get('model_name'),
+                'tokens': input_data.get('tokens'),
+                'date': result.date
+            }
+            
+            # Add PDF bytes directly to vault (no local file)
+            try:
+                entry = self.vault_repository.add_bytes(pdf_bytes, filename, metadata)
+            except Exception as e:
+                raise VaultError(f"Failed to add PDF to vault: {str(e)}")
+            
+            # Return vault filename (not a local path)
+            return entry.vault_filename
             
         except Exception as e:
             if isinstance(e, BroadSpecError):
@@ -333,6 +352,7 @@ class ApplicationController:
             'usd_from_tokens': result.usd_from_tokens,
             'net_usd': result.net_usd,
             'total_usd_precalc': result.total_usd_precalc,
+            'usd_to_send_platform': getattr(result, 'usd_to_send_platform', 0.0),
             'date': result.date
         }
     
@@ -352,6 +372,7 @@ class ApplicationController:
             usd_from_tokens=result_dict.get('usd_from_tokens', 0),
             net_usd=result_dict.get('net_usd', 0),
             total_usd_precalc=result_dict.get('total_usd_precalc', 0),
+            usd_to_send_platform=result_dict.get('usd_to_send_platform', 0),
             date=result_dict.get('date', '')
         )
 
