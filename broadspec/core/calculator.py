@@ -1,5 +1,6 @@
 from typing import List, Optional
 from .models import PaymentData, CalculationResult, OtherSite, Advance
+from datetime import datetime
 
 
 class PaymentCalculator:
@@ -69,7 +70,7 @@ class PaymentCalculator:
             net_usd=net_usd,
             total_usd_precalc=total_usd_precalc,
             usd_to_send_platform=usd_to_send_platform,
-            date=getattr(data, 'date', "")
+            date=(getattr(data, 'date', "") or datetime.now().strftime("%Y-%m-%d"))
         )
     
     def _calculate_fines(self, data: PaymentData) -> tuple[float, str, bool]:

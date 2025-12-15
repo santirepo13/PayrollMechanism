@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import messagebox
+from datetime import datetime
 
 from broadspec.core.exceptions import BroadSpecError
 
@@ -91,6 +92,10 @@ class CalculationHandler:
     def _generate_full_receipt(self, input_data: dict, result_data: dict) -> str:
         """Generate full receipt text."""
         equals_line = "=" * 50
+        # Ensure a visible date; if missing or empty, default to today's date
+        date_value = result_data.get('date')
+        if not date_value:
+            result_data['date'] = datetime.now().strftime("%Y-%m-%d")
         
         other_sites_lines = []
         for i, site in enumerate(input_data.get('other_sites', []), start=2):
@@ -179,7 +184,8 @@ FINAL CALCULATION:
             except Exception:
                 return default
 
-        date = result_data.get('date', '')
+        # Ensure a visible date in the model receipt as well
+        date = result_data.get('date') or datetime.now().strftime("%Y-%m-%d")
         model_id = input_data.get('model_id', '') or ''
         model_name = input_data.get('model_name', '') or ''
         trm_official = f"{safe_float(input_data.get('trm_official_cop', 0)):,.2f} COP"
