@@ -17,7 +17,31 @@ class PaymentCalculator:
     
     def calculate(self, data: PaymentData) -> CalculationResult:
         """Perform payment calculation."""
-        trm_broadspec_cop = data.trm_official_cop - self.trm_adjustment
+        # Determine total tokens across all sites BEFORE applying percentage
+        # - Main tokens come as TKS directly
+        # - Other sites can be USD or TKS; convert USD -> TKS using token_to_usd_rate (e.g., 1 USD = 20 TKS)
+        other_sites_tokens_total = 0.0
+        for site in data.other_sites:
+            try:
+                site_type = site.site_type.upper()
+            except Exception:
+                site_type = 'USD'
+            if site_type == 'USD':
+                other_sites_tokens_total += site.amount * self.token_to_usd_rate
+            else:
+                other_sites_tokens_total += site.amount
+
+        total_tokens_all_sites = float(data.tokens) + other_sites_tokens_total
+
+        # Dynamic TRM adjustment rule:
+        # - Default adjustment: self.trm_adjustment (e.g., 300 COP)
+        # - If total tokens >= 3000, reduce adjustment to 200 COP
+        # - If override flag is set, always use default adjustment (ignore 3000+ rule)
+        if getattr(data, 'override_high_tokens_trm', False):
+            trm_adjustment_used = self.trm_adjustment
+        else:
+            trm_adjustment_used = 200 if total_tokens_all_sites >= 3000 else self.trm_adjustment
+        trm_broadspec_cop = data.trm_official_cop - trm_adjustment_used
         
         transfer_cost_usd = self.transfer_cost + (self.transfer_cost * self.transfer_cost_tax)
         transfer_cost_cop = transfer_cost_usd * data.btk_trm_cop

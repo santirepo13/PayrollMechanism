@@ -86,6 +86,17 @@ class MainTabUI:
         self.btk_trm_cop = ttk.Entry(parent, width=20)
         self.btk_trm_cop.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
         row += 1
+
+        # Checkbox to override the 200 COP deduction when tokens >= 3000
+        # If enabled, TRM BroadSpec uses default adjustment (e.g., -300) regardless of tokens
+        self.override_high_tokens_trm_var = tk.BooleanVar(value=False)
+        self.override_high_tokens_trm_cb = ttk.Checkbutton(
+            parent,
+            text="Always apply -300 TRM (ignore 3000+ TKS rule)",
+            variable=self.override_high_tokens_trm_var
+        )
+        self.override_high_tokens_trm_cb.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
         
         ttk.Label(parent, text="Tokens (TKS):", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.tokens = ttk.Entry(parent, width=20)
@@ -286,6 +297,10 @@ class MainTabUI:
         self.percentage.current(1)
         self.previous_fortnight_usd.delete(0, tk.END)
         self.previous_fortnight_usd.insert(0, "0")
+        try:
+            self.override_high_tokens_trm_var.set(False)
+        except Exception:
+            pass
         
         if hasattr(self, 'other_sites_entries'):
             for type_cb, amount_e, frame in self.other_sites_entries:

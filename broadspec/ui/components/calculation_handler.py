@@ -76,8 +76,15 @@ class CalculationHandler:
             'other_sites': other_sites,
             'advances': advances,
             'fines_count': fines_count,
-            'custom_fine_cop': custom_fine_cop
+            'custom_fine_cop': custom_fine_cop,
+            'override_high_tokens_trm': self._get_override_flag()
         }
+
+    def _get_override_flag(self) -> bool:
+        try:
+            return bool(self.main_tab_ui.override_high_tokens_trm_var.get())
+        except Exception:
+            return False
     
     def _display_receipts(self, input_data: dict, result_data: dict):
         """Display calculation results in both receipt text areas."""

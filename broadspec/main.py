@@ -285,7 +285,8 @@ class ApplicationController:
             other_sites=other_sites,
             advances=advances,
             fines_count=form_data.get('fines_count', 0),
-            custom_fine_cop=form_data.get('custom_fine_cop', 0)
+            custom_fine_cop=form_data.get('custom_fine_cop', 0),
+            override_high_tokens_trm=bool(form_data.get('override_high_tokens_trm', False))
         )
     
     def _payment_data_to_dict(self, data: PaymentData) -> dict:
@@ -307,7 +308,8 @@ class ApplicationController:
                 for advance in data.advances
             ],
             'fines_count': data.fines_count,
-            'custom_fine_cop': data.custom_fine_cop
+            'custom_fine_cop': data.custom_fine_cop,
+            'override_high_tokens_trm': getattr(data, 'override_high_tokens_trm', False)
         }
     
     def _dict_to_payment_data(self, data_dict: dict) -> PaymentData:
@@ -333,7 +335,8 @@ class ApplicationController:
             other_sites=other_sites,
             advances=advances,
             fines_count=data_dict.get('fines_count', 0),
-            custom_fine_cop=data_dict.get('custom_fine_cop', 0)
+            custom_fine_cop=data_dict.get('custom_fine_cop', 0),
+            override_high_tokens_trm=bool(data_dict.get('override_high_tokens_trm', False))
         )
     
     def _calculation_result_to_dict(self, result: CalculationResult) -> dict:

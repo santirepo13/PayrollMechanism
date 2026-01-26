@@ -42,6 +42,9 @@ class PaymentData:
     advances: List[Advance]
     fines_count: int
     custom_fine_cop: float
+    # If True, always use the standard TRM adjustment (e.g., -300),
+    # ignoring the 3000+ tokens rule that reduces the adjustment to -200.
+    override_high_tokens_trm: bool = False
     
     def __post_init__(self):
         if not self.other_sites:
