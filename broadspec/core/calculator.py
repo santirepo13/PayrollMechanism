@@ -63,8 +63,9 @@ class PaymentCalculator:
         fines_total, fines_display, show_fines = self._calculate_fines(data)
         
         advances_total = sum(advance.amount for advance in data.advances)
+        extras_total = sum(extra.amount for extra in data.extras)
         
-        total_cop = valor_broadspec_cop - advances_total - fines_total
+        total_cop = valor_broadspec_cop - advances_total - fines_total + extras_total
         total_usd = total_cop / trm_broadspec_cop
         
         # Token value in COP (BTK TRM * 0.05) as per calculation notes
@@ -89,6 +90,7 @@ class PaymentCalculator:
             fines_display=fines_display,
             show_fines=show_fines,
             advances_total=advances_total,
+            extras_total=extras_total,
             other_sites_total_usd=other_sites_total_usd,
             usd_from_tokens=usd_from_tokens,
             net_usd=net_usd,
@@ -147,6 +149,10 @@ class PaymentCalculator:
         for i, advance in enumerate(data.advances):
             if advance.amount < 0:
                 errors.append(f"Advance {i+1} amount cannot be negative")
+        
+        for i, extra in enumerate(data.extras):
+            if extra.amount < 0:
+                errors.append(f"Extra {i+1} amount cannot be negative")
         
         for i, site in enumerate(data.other_sites):
             if site.amount < 0:

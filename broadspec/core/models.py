@@ -40,10 +40,9 @@ class PaymentData:
     previous_fortnight_usd: float
     other_sites: List[OtherSite]
     advances: List[Advance]
+    extras: List[Advance]
     fines_count: int
     custom_fine_cop: float
-    # If True, always use the standard TRM adjustment (e.g., -300),
-    # ignoring the 3000+ tokens rule that reduces the adjustment to -200.
     override_high_tokens_trm: bool = False
     
     def __post_init__(self):
@@ -51,6 +50,8 @@ class PaymentData:
             self.other_sites = []
         if not self.advances:
             self.advances = []
+        if not self.extras:
+            self.extras = []
 
 
 @dataclass
@@ -65,6 +66,7 @@ class CalculationResult:
     fines_display: str = ""
     show_fines: bool = True
     advances_total: float = 0.0
+    extras_total: float = 0.0
     other_sites_total_usd: float = 0.0
     usd_from_tokens: float = 0.0
     net_usd: float = 0.0

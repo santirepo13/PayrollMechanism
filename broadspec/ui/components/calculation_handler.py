@@ -54,6 +54,17 @@ class CalculationHandler:
             except ValueError:
                 pass
         
+        extras = []
+        for date_e, amount_e, _ in self.main_tab_ui.extras_entries:
+            try:
+                amount = float(amount_e.get() or 0)
+                extras.append({
+                    'date': date_e.get(),
+                    'amount': amount
+                })
+            except ValueError:
+                pass
+        
         custom_fine = (self.main_tab_ui.custom_fine_cop.get() or "").strip().replace(",", "")
         if custom_fine:
             fines_count = 0
@@ -75,6 +86,7 @@ class CalculationHandler:
             'previous_fortnight_usd': float(self.main_tab_ui.previous_fortnight_usd.get() or 0),
             'other_sites': other_sites,
             'advances': advances,
+            'extras': extras,
             'fines_count': fines_count,
             'custom_fine_cop': custom_fine_cop,
             'override_high_tokens_trm': self._get_override_flag()
@@ -122,6 +134,14 @@ class CalculationHandler:
         if advances_display:
             advances_display += "\n"
         
+        extras_lines = []
+        for extra in input_data.get('extras', []):
+            extras_lines.append(f"    {extra['date']}: {extra['amount']:,.2f} COP")
+        
+        extras_display = "\n".join(extras_lines) if extras_lines else "    None"
+        if extras_display:
+            extras_display += "\n"
+        
         if result_data.get('show_fines', True):
             fines_display = result_data.get('fines_display', '')
             fines_section = f"\nFINES:\n  {fines_display}\n"
@@ -144,12 +164,15 @@ INPUT VALUES:
   TRM BROADSPEC $COP: {result_data.get('trm_broadspec_cop', 0):,.2f} COP
   Tokens (TKS): {input_data.get('tokens', 0):,}
   Percentage: {input_data.get('percentage', 0):.0%}
-  Other Sites (USD equivalent):
+   Other Sites (USD equivalent):
 {other_sites_display}
   Previous Fortnight USD: {input_data.get('previous_fortnight_usd', 0):,.2f} USD
-  
+   
 ADVANCES:
-{advances_display}  Total: {result_data.get('advances_total', 0):,.2f} COP{fines_section}
+{advances_display}  Total: {result_data.get('advances_total', 0):,.2f} COP
+   
+EXTRAS (Money to Model):
+{extras_display}  Total: {result_data.get('extras_total', 0):,.2f} COP{fines_section}
 CALCULATED VALUES:
   USD from Tokens: {result_data.get('usd_from_tokens', 0):,.3f} USD
   Net Amount USD: {result_data.get('net_usd', 0):,.3f} USD
@@ -160,8 +183,9 @@ CALCULATED VALUES:
 FINAL CALCULATION:
   BroadSpec Value: {result_data.get('valor_broadspec_cop', 0):,.2f} COP
   Less Advances: {result_data.get('advances_total', 0):,.2f} COP
+  Plus Extras: {result_data.get('extras_total', 0):,.2f} COP
   Less Fines: {result_data.get('fines_total', 0):,.2f} COP
-   
+    
   TOTAL PAYMENT: {result_data.get('total_cop', 0):,.2f} COP
   TOTAL PAYMENT: {result_data.get('total_usd', 0):,.3f} USD
   USD to Send (Platform): {result_data.get('usd_to_send_platform', 0):,.3f} USD
@@ -216,6 +240,13 @@ FINAL CALCULATION:
             if amt > 0:
                 adv_date = adv.get('date', '')
                 advances_lines.append(f"  {adv_date}: {amt:,.2f} COP")
+        
+        extras_lines = []
+        for extra in input_data.get('extras', []):
+            amt = safe_float(extra.get('amount', 0))
+            if amt > 0:
+                extra_date = extra.get('date', '')
+                extras_lines.append(f"  {extra_date}: {amt:,.2f} COP")
 
         parts = []
         parts.extend(header_lines)
@@ -247,6 +278,11 @@ FINAL CALCULATION:
             parts.append("")
             parts.append("Advances:")
             parts.extend(advances_lines)
+        
+        if extras_lines:
+            parts.append("")
+            parts.append("Extras:")
+            parts.extend(extras_lines)
 
         if result_data.get('show_fines', True):
             parts.append("")

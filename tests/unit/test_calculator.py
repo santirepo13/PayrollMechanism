@@ -37,6 +37,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=0,
             custom_fine_cop=0
         )
@@ -61,12 +62,13 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[OtherSite("USD", 100)],
             advances=[],
+            extras=[],
             fines_count=0,
             custom_fine_cop=0
         )
         
         result = self.calculator.calculate(data)
-        assert result.other_sites_total_usd == 100.0
+        assert result.other_sites_total_usd == 70.0  # 100 * 0.7
     
     def test_calculate_with_other_sites_tks(self):
         """Test calculation with TKS other sites."""
@@ -80,12 +82,13 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[OtherSite("TKS", 200)],
             advances=[],
+            extras=[],
             fines_count=0,
             custom_fine_cop=0
         )
         
         result = self.calculator.calculate(data)
-        assert result.other_sites_total_usd == 10.0  # 200 / 20
+        assert result.other_sites_total_usd == 7.0  # (200 / 20) * 0.7
     
     def test_calculate_with_advances(self):
         """Test calculation with advances."""
@@ -99,6 +102,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[Advance("2025-01-01", 100000)],
+            extras=[],
             fines_count=0,
             custom_fine_cop=0
         )
@@ -118,6 +122,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=2,
             custom_fine_cop=0
         )
@@ -138,6 +143,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=2,
             custom_fine_cop=0
         )
@@ -158,6 +164,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=0,
             custom_fine_cop=50000
         )
@@ -178,6 +185,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=0,
             custom_fine_cop=0
         )
@@ -197,6 +205,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=0,
             custom_fine_cop=0
         )
@@ -217,6 +226,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=-50,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=-1,
             custom_fine_cop=-1000
         )
@@ -242,6 +252,7 @@ class TestPaymentCalculator:
             previous_fortnight_usd=0,
             other_sites=[],
             advances=[],
+            extras=[],
             fines_count=0,
             custom_fine_cop=0
         )

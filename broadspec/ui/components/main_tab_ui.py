@@ -12,6 +12,7 @@ class MainTabUI:
         self.window_setup = window_setup
         
         self.advances_entries = []
+        self.extras_entries = []
         self.other_sites_entries = []
         
         self._create_main_tab()
@@ -35,16 +36,51 @@ class MainTabUI:
         title = ttk.Label(main_frame, text="BROADSPEC PAYMENT CALCULATOR",
                          font=('Arial', 16, 'bold'))
         title.grid(row=0, column=0, columnspan=3, pady=(0, 10))
-        
-        input_frame = ttk.Frame(main_frame)
-        input_frame.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.E, tk.S), padx=(0, 10))
-        
+
+        # Left input area can grow (Advances/Extras/Other Sites). Make it scrollable so
+        # sections like Fines never "disappear" off-screen on smaller displays.
+        input_container = ttk.Frame(main_frame)
+        input_container.grid(row=1, column=0, sticky=(tk.N, tk.W, tk.E, tk.S), padx=(0, 10))
+
+        input_canvas = tk.Canvas(input_container, highlightthickness=0)
+        input_scrollbar = ttk.Scrollbar(input_container, orient=tk.VERTICAL, command=input_canvas.yview)
+        input_canvas.configure(yscrollcommand=input_scrollbar.set)
+
+        input_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        input_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+
+        input_frame = ttk.Frame(input_canvas)
+        input_window_id = input_canvas.create_window((0, 0), window=input_frame, anchor=tk.NW)
+
+        def _sync_scrollregion(_event=None):
+            try:
+                input_canvas.configure(scrollregion=input_canvas.bbox("all"))
+            except Exception:
+                pass
+
+        def _sync_frame_width(event):
+            try:
+                input_canvas.itemconfigure(input_window_id, width=event.width)
+            except Exception:
+                pass
+
+        def _on_mousewheel(event):
+            try:
+                input_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+            except Exception:
+                pass
+
+        input_frame.bind("<Configure>", _sync_scrollregion)
+        input_canvas.bind("<Configure>", _sync_frame_width)
+        input_frame.bind("<Enter>", lambda _e: input_canvas.bind_all("<MouseWheel>", _on_mousewheel))
+        input_frame.bind("<Leave>", lambda _e: input_canvas.unbind_all("<MouseWheel>"))
+
         try:
             input_frame.columnconfigure(0, weight=0)
             input_frame.columnconfigure(1, weight=1)
         except Exception:
             pass
-        
+
         self._create_input_fields(input_frame)
         
         self._create_receipt_displays(main_frame)
@@ -141,6 +177,19 @@ class MainTabUI:
         
         add_advance_btn = ttk.Button(advances_frame, text="+ Add Advance", command=self.add_advance_field)
         add_advance_btn.pack(pady=5)
+        row += 1
+        
+        ttk.Label(parent, text="Extras:", font=('Arial', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=(10,5))
+        row += 1
+        
+        extras_frame = ttk.Frame(parent)
+        extras_frame.grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        
+        self.extras_list_frame = ttk.Frame(extras_frame)
+        self.extras_list_frame.pack(fill='x')
+        
+        add_extra_btn = ttk.Button(extras_frame, text="+ Add Extra", command=self.add_extra_field)
+        add_extra_btn.pack(pady=5)
         row += 1
         
         self.fines_label = ttk.Label(parent, text="Fines (Studio only):", font=('Arial', 10, 'bold'))
@@ -258,6 +307,36 @@ class MainTabUI:
         if len(self.advances_entries) == 0:
             self.add_advance_field()
     
+    def add_extra_field(self):
+        """Add a new extra entry field."""
+        frame = ttk.Frame(self.extras_list_frame)
+        frame.pack(pady=2)
+        
+        date_entry = ttk.Entry(frame, width=12)
+        date_entry.insert(0, datetime.now().strftime("%Y-%m-%d"))
+        date_entry.pack(side=tk.LEFT, padx=2)
+        
+        amount_entry = ttk.Entry(frame, width=12)
+        amount_entry.insert(0, "0")
+        amount_entry.pack(side=tk.LEFT, padx=2)
+        
+        remove_btn = ttk.Button(frame, text="X", width=3,
+                               command=lambda: self.remove_extra_field(frame))
+        remove_btn.pack(side=tk.LEFT, padx=2)
+        
+        self.extras_entries.append((date_entry, amount_entry, frame))
+    
+    def remove_extra_field(self, frame):
+        """Remove an extra entry field."""
+        for i, (date_e, amount_e, f) in enumerate(self.extras_entries):
+            if f == frame:
+                self.extras_entries.pop(i)
+                frame.destroy()
+                break
+        
+        if len(self.extras_entries) == 0:
+            self.add_extra_field()
+    
     def add_other_site_field(self):
         """Add a new other-site entry field."""
         frame = ttk.Frame(self.other_sites_list_frame)
@@ -312,6 +391,11 @@ class MainTabUI:
             frame.destroy()
         self.advances_entries = []
         self.add_advance_field()
+        
+        for date_e, amount_e, frame in self.extras_entries:
+            frame.destroy()
+        self.extras_entries = []
+        self.add_extra_field()
         
         self.fines_count.delete(0, tk.END)
         self.fines_count.insert(0, "0")

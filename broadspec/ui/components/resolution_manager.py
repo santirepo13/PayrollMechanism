@@ -130,7 +130,18 @@ class ResolutionManager:
                                     if isinstance(btn, ttk.Button):
                                         padx = max(2, int(5 * scale_factor))
                                         pady = max(2, int(5 * scale_factor))
-                                        btn.grid_configure(padx=padx, pady=pady)
+                                        # Widgets may be managed by grid or pack depending on the tab.
+                                        # Only call the matching geometry-manager configure.
+                                        mgr = None
+                                        try:
+                                            mgr = btn.winfo_manager()
+                                        except Exception:
+                                            mgr = None
+
+                                        if mgr == "grid":
+                                            btn.grid_configure(padx=padx, pady=pady)
+                                        elif mgr == "pack":
+                                            btn.pack_configure(padx=padx, pady=pady)
             
             self._prevent_element_overlap(scale_factor)
             
@@ -145,19 +156,36 @@ class ResolutionManager:
             
             for widget in self.window_setup.main_tab.winfo_children():
                 if isinstance(widget, ttk.Frame):
-                    widget.grid_configure(minsize=(min_width, min_height))
+                    # Avoid mixing geometry managers: only adjust if the widget uses grid.
+                    try:
+                        if widget.winfo_manager() == "grid":
+                            widget.grid_configure(minsize=(min_width, min_height))
+                    except Exception:
+                        pass
                     
                     for child in widget.winfo_children():
                         if isinstance(child, ttk.LabelFrame):
-                            child.grid_configure(padx=int(5 * scale_factor), pady=int(5 * scale_factor))
+                            try:
+                                if child.winfo_manager() == "grid":
+                                    child.grid_configure(padx=int(5 * scale_factor), pady=int(5 * scale_factor))
+                            except Exception:
+                                pass
             
             for widget in self.window_setup.admin_tab.winfo_children():
                 if isinstance(widget, ttk.Frame):
-                    widget.grid_configure(minsize=(min_width, min_height))
+                    try:
+                        if widget.winfo_manager() == "grid":
+                            widget.grid_configure(minsize=(min_width, min_height))
+                    except Exception:
+                        pass
                     
                     for child in widget.winfo_children():
                         if isinstance(child, ttk.LabelFrame):
-                            child.grid_configure(padx=int(5 * scale_factor), pady=int(5 * scale_factor))
+                            try:
+                                if child.winfo_manager() == "grid":
+                                    child.grid_configure(padx=int(5 * scale_factor), pady=int(5 * scale_factor))
+                            except Exception:
+                                pass
             
             if hasattr(self.window_setup, 'receipt_text'):
                 receipt_frame = self.window_setup.receipt_text.master

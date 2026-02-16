@@ -274,6 +274,13 @@ class ApplicationController:
                 amount=advance.get('amount', 0)
             ))
         
+        extras = []
+        for extra in form_data.get('extras', []):
+            extras.append(Advance(
+                date=extra.get('date', ''),
+                amount=extra.get('amount', 0)
+            ))
+        
         return PaymentData(
             model_id=form_data.get('model_id', ''),
             model_name=form_data.get('model_name', ''),
@@ -284,6 +291,7 @@ class ApplicationController:
             previous_fortnight_usd=form_data.get('previous_fortnight_usd', 0),
             other_sites=other_sites,
             advances=advances,
+            extras=extras,
             fines_count=form_data.get('fines_count', 0),
             custom_fine_cop=form_data.get('custom_fine_cop', 0),
             override_high_tokens_trm=bool(form_data.get('override_high_tokens_trm', False))
@@ -307,6 +315,10 @@ class ApplicationController:
                 {'date': advance.date, 'amount': advance.amount}
                 for advance in data.advances
             ],
+            'extras': [
+                {'date': extra.date, 'amount': extra.amount}
+                for extra in data.extras
+            ],
             'fines_count': data.fines_count,
             'custom_fine_cop': data.custom_fine_cop,
             'override_high_tokens_trm': getattr(data, 'override_high_tokens_trm', False)
@@ -324,6 +336,11 @@ class ApplicationController:
             for advance in data_dict.get('advances', [])
         ]
         
+        extras = [
+            Advance(extra['date'], extra['amount'])
+            for extra in data_dict.get('extras', [])
+        ]
+        
         return PaymentData(
             model_id=data_dict.get('model_id', ''),
             model_name=data_dict.get('model_name', ''),
@@ -334,6 +351,7 @@ class ApplicationController:
             previous_fortnight_usd=data_dict.get('previous_fortnight_usd', 0),
             other_sites=other_sites,
             advances=advances,
+            extras=extras,
             fines_count=data_dict.get('fines_count', 0),
             custom_fine_cop=data_dict.get('custom_fine_cop', 0),
             override_high_tokens_trm=bool(data_dict.get('override_high_tokens_trm', False))
