@@ -374,7 +374,13 @@ class ApplicationController:
             'net_usd': result.net_usd,
             'total_usd_precalc': result.total_usd_precalc,
             'usd_to_send_platform': getattr(result, 'usd_to_send_platform', 0.0),
-            'date': result.date
+            'date': result.date,
+            'total_tokens_all_sites': getattr(result, 'total_tokens_all_sites', 0.0),
+            'bonus_percentage': getattr(result, 'bonus_percentage', 0.0),
+            'bonus_amount_usd': getattr(result, 'bonus_amount_usd', 0.0),
+            'bonus_amount_cop': getattr(result, 'bonus_amount_cop', 0.0),
+            'original_percentage': getattr(result, 'original_percentage', 0.0),
+            'final_percentage': getattr(result, 'final_percentage', 0.0)
         }
     
     def _dict_to_calculation_result(self, result_dict: dict) -> CalculationResult:
@@ -394,7 +400,13 @@ class ApplicationController:
             net_usd=result_dict.get('net_usd', 0),
             total_usd_precalc=result_dict.get('total_usd_precalc', 0),
             usd_to_send_platform=result_dict.get('usd_to_send_platform', 0),
-            date=result_dict.get('date', '')
+            date=result_dict.get('date', ''),
+            total_tokens_all_sites=result_dict.get('total_tokens_all_sites', 0.0),
+            bonus_percentage=result_dict.get('bonus_percentage', 0.0),
+            bonus_amount_usd=result_dict.get('bonus_amount_usd', 0.0),
+            bonus_amount_cop=result_dict.get('bonus_amount_cop', 0.0),
+            original_percentage=result_dict.get('original_percentage', 0.0),
+            final_percentage=result_dict.get('final_percentage', 0.0)
         )
 
 
