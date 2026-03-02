@@ -74,6 +74,12 @@ class CalculationResult:
     usd_to_send_platform: float = 0.0
     btk_trm_cop: float = 0.0
     date: str = ""
+    total_tokens_all_sites: float = 0.0
+    bonus_percentage: float = 0.0
+    bonus_amount_usd: float = 0.0
+    bonus_amount_cop: float = 0.0
+    original_percentage: float = 0.0
+    final_percentage: float = 0.0
     
     def __init__(self, *args, **kwargs):
         """
@@ -87,14 +93,18 @@ class CalculationResult:
             'fines_total': 0.0, 'fines_display': "", 'show_fines': True,
             'advances_total': 0.0, 'other_sites_total_usd': 0.0,
             'usd_from_tokens': 0.0, 'net_usd': 0.0, 'total_usd_precalc': 0.0,
-            'usd_to_send_platform': 0.0, 'btk_trm_cop': 0.0, 'date': ""
+            'usd_to_send_platform': 0.0, 'btk_trm_cop': 0.0, 'date': "",
+            'total_tokens_all_sites': 0.0, 'bonus_percentage': 0.0,
+            'bonus_amount_usd': 0.0, 'bonus_amount_cop': 0.0,
+            'original_percentage': 0.0, 'final_percentage': 0.0
         }
         field_order = [
             'total_cop', 'total_usd', 'trm_broadspec_cop', 'transfer_cost_cop',
             'valor_broadspec_cop', 'fines_total', 'fines_display', 'show_fines',
             'advances_total', 'other_sites_total_usd', 'usd_from_tokens',
             'net_usd', 'total_usd_precalc', 'usd_to_send_platform',
-            'btk_trm_cop', 'date'
+            'btk_trm_cop', 'date', 'total_tokens_all_sites', 'bonus_percentage',
+            'bonus_amount_usd', 'bonus_amount_cop', 'original_percentage', 'final_percentage'
         ]
         # Assign from positional args first
         for i, name in enumerate(field_order):
