@@ -173,6 +173,13 @@ ADVANCES:
    
 EXTRAS (Money to Model):
 {extras_display}  Total: {result_data.get('extras_total', 0):,.2f} COP{fines_section}
+BONUS INFORMATION:
+  Total Tokens (All Sites): {result_data.get('total_tokens_all_sites', 0):,.0f} TKS
+  Original Percentage: {result_data.get('original_percentage', 0):.1%}
+  Bonus Percentage: {result_data.get('bonus_percentage', 0):.1%}
+  Final Percentage: {result_data.get('final_percentage', 0):.1%}
+  Bonus Amount: {result_data.get('bonus_amount_usd', 0):,.3f} USD ({result_data.get('bonus_amount_cop', 0):,.2f} COP)
+  
 CALCULATED VALUES:
   USD from Tokens: {result_data.get('usd_from_tokens', 0):,.3f} USD
   Net Amount USD: {result_data.get('net_usd', 0):,.3f} USD
@@ -272,7 +279,12 @@ FINAL CALCULATION:
             parts.extend(other_sites_lines)
   
         parts.append("")
-        parts.append(f"Percentage: {percentage:.0%}")
+        parts.append(f"Percentage: {result_data.get('final_percentage', percentage):.1%}")
+        
+        # Show bonus information if applicable
+        if result_data.get('bonus_percentage', 0) > 0:
+            parts.append("")
+            parts.append(f"Bonus: +{result_data.get('bonus_percentage', 0):.1%}")
 
         if advances_lines:
             parts.append("")

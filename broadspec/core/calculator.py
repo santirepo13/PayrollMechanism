@@ -17,7 +17,7 @@ class PaymentCalculator:
     
     def calculate(self, data: PaymentData) -> CalculationResult:
         """Perform payment calculation."""
-        # Determine total tokens across all sites BEFORE applying percentage
+        # Determine total tokens across all sites before applying percentage
         # - Main tokens come as TKS directly
         # - Other sites can be USD or TKS; convert USD -> TKS using token_to_usd_rate (e.g., 1 USD = 20 TKS)
         other_sites_tokens_total = 0.0
@@ -33,6 +33,16 @@ class PaymentCalculator:
 
         total_tokens_all_sites = float(data.tokens) + other_sites_tokens_total
 
+        # Calculate bonus based on total tokens across all sites
+        bonus_percentage = self._calculate_bonus_percentage(total_tokens_all_sites)
+        
+        # Apply bonus to the original percentage
+        original_percentage = data.percentage
+        if original_percentage > 1:
+            original_percentage = original_percentage / 100.0
+        
+        final_percentage = original_percentage + bonus_percentage
+
         # Dynamic TRM adjustment rule:
         # - Default adjustment: self.trm_adjustment (e.g., 300 COP)
         # - If total tokens >= 3000, reduce adjustment to 200 COP
@@ -47,14 +57,13 @@ class PaymentCalculator:
         transfer_cost_cop = transfer_cost_usd * data.btk_trm_cop
         
         usd_from_tokens = data.tokens / self.token_to_usd_rate
-        percent = data.percentage
-        if percent > 1:
-            percent = percent / 100.0
-        net_usd = usd_from_tokens * percent
+        
+        # Use final percentage (original + bonus) for calculations
+        net_usd = usd_from_tokens * final_percentage
 
         # Other sites USD should be treated like tokens: convert to USD, then apply percentage.
         other_sites_total_usd_raw = sum(site.get_usd_equivalent() for site in data.other_sites)
-        other_sites_total_usd = other_sites_total_usd_raw * percent
+        other_sites_total_usd = other_sites_total_usd_raw * final_percentage
         
         total_usd_precalc = net_usd + other_sites_total_usd + data.previous_fortnight_usd
         
@@ -67,6 +76,10 @@ class PaymentCalculator:
         
         total_cop = valor_broadspec_cop - advances_total - fines_total + extras_total
         total_usd = total_cop / trm_broadspec_cop
+        
+        # Calculate bonus amounts in USD and COP
+        bonus_amount_usd = (usd_from_tokens + other_sites_total_usd_raw) * bonus_percentage
+        bonus_amount_cop = bonus_amount_usd * trm_broadspec_cop
         
         # Token value in COP (BTK TRM * 0.05) as per calculation notes
         token_value_cop = data.btk_trm_cop * 0.05
@@ -96,8 +109,43 @@ class PaymentCalculator:
             net_usd=net_usd,
             total_usd_precalc=total_usd_precalc,
             usd_to_send_platform=usd_to_send_platform,
-            date=(getattr(data, 'date', "") or datetime.now().strftime("%Y-%m-%d"))
+            date=(getattr(data, 'date', "") or datetime.now().strftime("%Y-%m-%d")),
+            total_tokens_all_sites=total_tokens_all_sites,
+            bonus_percentage=bonus_percentage,
+            bonus_amount_usd=bonus_amount_usd,
+            bonus_amount_cop=bonus_amount_cop,
+            original_percentage=original_percentage,
+            final_percentage=final_percentage
         )
+    
+    def _calculate_bonus_percentage(self, total_tokens: float) -> float:
+        """Calculate bonus percentage based on total tokens across all sites.
+        
+        Bonus thresholds:
+        - 15,000+ tokens: 2.5%
+        - 17,500+ tokens: 3.5%
+        - 20,000+ tokens: 5.0%
+        - 22,500+ tokens: 6.0%
+        - 25,000+ tokens: 7.5%
+        - 27,500+ tokens: 8.5%
+        - 30,000+ tokens: 10.0%
+        """
+        if total_tokens >= 30000:
+            return 0.10  # 10%
+        elif total_tokens >= 27500:
+            return 0.085  # 8.5%
+        elif total_tokens >= 25000:
+            return 0.075  # 7.5%
+        elif total_tokens >= 22500:
+            return 0.06  # 6.0%
+        elif total_tokens >= 20000:
+            return 0.05  # 5.0%
+        elif total_tokens >= 17500:
+            return 0.035  # 3.5%
+        elif total_tokens >= 15000:
+            return 0.025  # 2.5%
+        else:
+            return 0.0  # No bonus
     
     def _calculate_fines(self, data: PaymentData) -> tuple[float, str, bool]:
         """Calculate fines based on percentage and input values."""
