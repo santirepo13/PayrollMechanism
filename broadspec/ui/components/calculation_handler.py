@@ -89,12 +89,19 @@ class CalculationHandler:
             'extras': extras,
             'fines_count': fines_count,
             'custom_fine_cop': custom_fine_cop,
-            'override_high_tokens_trm': self._get_override_flag()
+            'override_high_tokens_trm': self._get_override_flag(),
+            'disable_bonus': self._get_disable_bonus_flag()
         }
 
     def _get_override_flag(self) -> bool:
         try:
             return bool(self.main_tab_ui.override_high_tokens_trm_var.get())
+        except Exception:
+            return False
+
+    def _get_disable_bonus_flag(self) -> bool:
+        try:
+            return bool(self.main_tab_ui.disable_bonus_var.get())
         except Exception:
             return False
     

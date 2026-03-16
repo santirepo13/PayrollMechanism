@@ -294,7 +294,8 @@ class ApplicationController:
             extras=extras,
             fines_count=form_data.get('fines_count', 0),
             custom_fine_cop=form_data.get('custom_fine_cop', 0),
-            override_high_tokens_trm=bool(form_data.get('override_high_tokens_trm', False))
+            override_high_tokens_trm=bool(form_data.get('override_high_tokens_trm', False)),
+            disable_bonus=bool(form_data.get('disable_bonus', False))
         )
     
     def _payment_data_to_dict(self, data: PaymentData) -> dict:
@@ -354,7 +355,8 @@ class ApplicationController:
             extras=extras,
             fines_count=data_dict.get('fines_count', 0),
             custom_fine_cop=data_dict.get('custom_fine_cop', 0),
-            override_high_tokens_trm=bool(data_dict.get('override_high_tokens_trm', False))
+            override_high_tokens_trm=bool(data_dict.get('override_high_tokens_trm', False)),
+            disable_bonus=bool(data_dict.get('disable_bonus', False))
         )
     
     def _calculation_result_to_dict(self, result: CalculationResult) -> dict:

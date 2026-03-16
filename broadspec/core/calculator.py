@@ -34,7 +34,11 @@ class PaymentCalculator:
         total_tokens_all_sites = float(data.tokens) + other_sites_tokens_total
 
         # Calculate bonus based on total tokens across all sites
-        bonus_percentage = self._calculate_bonus_percentage(total_tokens_all_sites)
+        # If disable_bonus flag is set, bonus_percentage will be 0
+        if getattr(data, 'disable_bonus', False):
+            bonus_percentage = 0.0
+        else:
+            bonus_percentage = self._calculate_bonus_percentage(total_tokens_all_sites)
         
         # Apply bonus to the original percentage
         original_percentage = data.percentage

@@ -44,6 +44,7 @@ class PaymentData:
     fines_count: int
     custom_fine_cop: float
     override_high_tokens_trm: bool = False
+    disable_bonus: bool = False
     
     def __post_init__(self):
         if not self.other_sites:

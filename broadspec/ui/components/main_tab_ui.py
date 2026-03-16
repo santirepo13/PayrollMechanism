@@ -134,6 +134,16 @@ class MainTabUI:
         self.override_high_tokens_trm_cb.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
         row += 1
         
+        # Checkbox to disable all bonuses
+        self.disable_bonus_var = tk.BooleanVar(value=False)
+        self.disable_bonus_cb = ttk.Checkbutton(
+            parent,
+            text="Disable All Bonuses (ignore token bonus thresholds)",
+            variable=self.disable_bonus_var
+        )
+        self.disable_bonus_cb.grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+        
         ttk.Label(parent, text="Tokens (TKS):", font=('Arial', 10)).grid(row=row, column=0, sticky=tk.W, pady=5)
         self.tokens = ttk.Entry(parent, width=20)
         self.tokens.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=5)
@@ -378,6 +388,10 @@ class MainTabUI:
         self.previous_fortnight_usd.insert(0, "0")
         try:
             self.override_high_tokens_trm_var.set(False)
+        except Exception:
+            pass
+        try:
+            self.disable_bonus_var.set(False)
         except Exception:
             pass
         
