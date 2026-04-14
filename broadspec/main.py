@@ -40,7 +40,7 @@ class ApplicationController:
     def _load_configuration(self):
         """Load application configuration."""
         try:
-            config_path = 'config.yaml'
+            config_path = os.path.join(_repo_root, 'config.yaml')
             if not os.path.exists(config_path):
                 raise ConfigurationError(f"Configuration file not found: {config_path}")
             
