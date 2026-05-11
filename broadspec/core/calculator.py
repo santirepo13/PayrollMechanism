@@ -126,30 +126,24 @@ class PaymentCalculator:
         """Calculate bonus percentage based on total tokens across all sites.
         
         Bonus thresholds:
-        - 15,000+ tokens: 2.5%
-        - 17,500+ tokens: 3.5%
-        - 20,000+ tokens: 5.0%
-        - 22,500+ tokens: 6.0%
-        - 25,000+ tokens: 7.5%
-        - 27,500+ tokens: 8.5%
-        - 30,000+ tokens: 10.0%
+        - 10,000+ tokens: 3%
+        - 12,500+ tokens: 4.5%
+        - 15,000+ tokens: 6%
+        - 17,500+ tokens: 8%
+        - 20,000+ tokens: 10%
         """
-        if total_tokens >= 30000:
-            return 0.10  # 10%
-        elif total_tokens >= 27500:
-            return 0.085  # 8.5%
-        elif total_tokens >= 25000:
-            return 0.075  # 7.5%
-        elif total_tokens >= 22500:
-            return 0.06  # 6.0%
-        elif total_tokens >= 20000:
-            return 0.05  # 5.0%
+        if total_tokens >= 20000:
+            return 0.10   # 10%
         elif total_tokens >= 17500:
-            return 0.035  # 3.5%
+            return 0.08   # 8%
         elif total_tokens >= 15000:
-            return 0.025  # 2.5%
+            return 0.06   # 6%
+        elif total_tokens >= 12500:
+            return 0.045  # 4.5%
+        elif total_tokens >= 10000:
+            return 0.03   # 3%
         else:
-            return 0.0  # No bonus
+            return 0.0    # No bonus
     
     def _calculate_fines(self, data: PaymentData) -> tuple[float, str, bool]:
         """Calculate fines based on percentage and input values."""
