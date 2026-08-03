@@ -1,0 +1,34 @@
+app:
+  name: "BroadSpec Payment Calculator"
+  version: "1.0.0"
+  transferCost: 6.99
+
+ui:
+  defaultWidth: 1900
+  defaultHeight: 1064
+  pdfPreviewEnabled: true
+  resolutions:
+    - name: "1920x1080"
+      width: 1920
+      height: 1080
+    - name: "1366x768"
+      width: 1366
+      height: 768
+  themes:
+    - name: "default"
+      colors:
+        primary: "#007bff"
+        secondary: "#6c757d"
+        background: "#ffffff"
+        text: "#000000"
+
+storage:
+  vaultPath: ".secure_store"
+  receiptsPath: "Receipts"
+  encryptionAlgorithm: "Fernet"
+
+calculation:
+  tokenToUsdRate: 20.0
+  trmAdjustment: 300
+  fineAmount: 30000
+  transferCostTax: 0.19
