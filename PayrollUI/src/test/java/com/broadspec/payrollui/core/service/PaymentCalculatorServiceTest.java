@@ -177,4 +177,52 @@ class PaymentCalculatorServiceTest {
             .isInstanceOf(ValidationException.class)
             .hasMessageContaining("Model ID is required");
     }
+
+    @Test
+    void shouldNotApplyReimbursementWhenFlagOff() {
+        PaymentData data = new PaymentData("12345", "Test Model",
+            4000.0, 4100.0, 1000, 0.7, 0.0,
+            List.of(), List.of(), List.of(),
+            0, 0.0, false, false, 0.0, false);
+
+        CalculationResult result = calculator.calculate(data);
+
+        assertThat(result.lowIncomeReimbursementCop()).isEqualTo(0.0);
+        assertThat(result.totalCop()).isPositive();
+    }
+
+    @Test
+    void shouldApplyReimbursementEqualToTransferCostWhenFlagOn() {
+        PaymentData data = new PaymentData("12345", "Test Model",
+            4000.0, 4100.0, 1000, 0.7, 0.0,
+            List.of(), List.of(), List.of(),
+            0, 0.0, false, false, 0.0, true);
+
+        CalculationResult result = calculator.calculate(data);
+
+        double expectedTransferCostCop = 6.99 * (1.0 + 0.19) * 4100.0;
+        assertThat(result.lowIncomeReimbursementCop())
+            .isCloseTo(expectedTransferCostCop, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(result.transferCostCop())
+            .isCloseTo(expectedTransferCostCop, org.assertj.core.data.Offset.offset(0.01));
+        assertThat(result.totalCop()).isPositive();
+    }
+
+    @Test
+    void shouldIncreaseTotalCopByReimbursementAmount() {
+        PaymentData dataOff = new PaymentData("12345", "Test Model",
+            4000.0, 4100.0, 1000, 0.7, 0.0,
+            List.of(), List.of(), List.of(),
+            0, 0.0, false, false, 0.0, false);
+        PaymentData dataOn = new PaymentData("12345", "Test Model",
+            4000.0, 4100.0, 1000, 0.7, 0.0,
+            List.of(), List.of(), List.of(),
+            0, 0.0, false, false, 0.0, true);
+
+        CalculationResult resultOff = calculator.calculate(dataOff);
+        CalculationResult resultOn = calculator.calculate(dataOn);
+
+        assertThat(resultOn.totalCop() - resultOff.totalCop())
+            .isCloseTo(resultOn.lowIncomeReimbursementCop(), org.assertj.core.data.Offset.offset(0.01));
+    }
 }

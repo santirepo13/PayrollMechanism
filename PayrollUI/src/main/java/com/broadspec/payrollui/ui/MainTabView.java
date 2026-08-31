@@ -49,8 +49,11 @@ public class MainTabView {
     private final Label fineCountLabel;
     private final Label customFineLabel;
 
+    private static final double BTK_THRESHOLD_TKS = 3000;
+
     private Map<String, Object> currentInputData;
     private Map<String, Object> currentResultData;
+    private boolean belowBtkThresholdUserSet = false;
 
     public MainTabView(ApplicationController controller, MainWindow mainWindow) {
         this.controller = controller;
@@ -63,6 +66,7 @@ public class MainTabView {
         this.overrideTrmCheck = new CheckBox("Always apply -300 TRM (ignore 3000+ TKS rule)");
         this.disableBonusCheck = new CheckBox("Disable All Bonuses (ignore token bonus thresholds)");
         this.belowBtkThresholdCheck = new CheckBox("Payment Below BTK Threshold (reimburse payment fee)");
+        belowBtkThresholdCheck.setOnAction(e -> belowBtkThresholdUserSet = true);
         this.tokensField = new TextField();
         this.percentageCombo = new ComboBox<>();
         percentageCombo.getItems().addAll("60%", "70%", "75%");
@@ -183,7 +187,8 @@ public class MainTabView {
         );
 
         percentageCombo.setOnAction(e -> updateFinesState());
-        tokensField.setOnKeyReleased(e -> updateTotalTokensDisplay());
+        tokensField.textProperty().addListener((o, a, b) -> updateTotalTokensDisplay());
+        previousFortnightField.textProperty().addListener((o, a, b) -> updateTotalTokensDisplay());
 
         return panel;
     }
@@ -213,7 +218,7 @@ public class MainTabView {
         otherSiteRows.add(new OtherSiteRow(typeCombo, amountField, row));
 
         typeCombo.setOnAction(e -> updateTotalTokensDisplay());
-        amountField.setOnKeyReleased(e -> updateTotalTokensDisplay());
+        amountField.textProperty().addListener((o, a, b) -> updateTotalTokensDisplay());
     }
 
     void addAdvanceRow() {
@@ -266,6 +271,17 @@ public class MainTabView {
     private void updateTotalTokensDisplay() {
         double total = computeTotalTokens();
         totalTokensLabel.setText(String.format("%.0f TKS", total));
+        applyBelowBtkThresholdAuto();
+    }
+
+    private void applyBelowBtkThresholdAuto() {
+        if (belowBtkThresholdUserSet) return;
+        double t = computeThresholdTokens();
+        belowBtkThresholdCheck.setSelected(shouldAutoEnable(t));
+    }
+
+    static boolean shouldAutoEnable(double thresholdTokens) {
+        return thresholdTokens > 0 && thresholdTokens <= BTK_THRESHOLD_TKS;
     }
 
     private double computeTotalTokens() {
@@ -279,6 +295,10 @@ public class MainTabView {
             }
         }
         return main;
+    }
+
+    private double computeThresholdTokens() {
+        return computeTotalTokens() + parseDouble(previousFortnightField.getText(), 0) * 20;
     }
 
     private void handleCalculate() {
@@ -431,6 +451,7 @@ public class MainTabView {
 
         currentInputData = null;
         currentResultData = null;
+        belowBtkThresholdUserSet = false;
         updateFinesState();
         updateTotalTokensDisplay();
 
